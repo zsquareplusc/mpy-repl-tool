@@ -16,8 +16,7 @@ setup(
     author="Chris Liechti",
     author_email="cliechti@gmx.net",
     url="https://github.com/zsquareplusc/mpy-repl-tool",
-    #~ packages=[''],
-    py_modules=['there'],
+    packages=['there'],
     license="BSD",
     #~ long_description="""\
 #~ """,
@@ -27,7 +26,8 @@ setup(
     install_requires=['pyserial>=3'],
     entry_points={
         "distutils.commands": [
-            "there = there:main",
+            "there = there.__main__:main",
         ],
+    },
 )
 

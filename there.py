@@ -79,13 +79,15 @@ class MicroPythonSync(object):
         return self.protocol.exec(string)
 
     def read_file(self, path):
-        # remote execution bug if path is not a string ;-)
-        # XXX only text files supported for now
-        data = self.protocol.exec('print("ZZ", open({!r}, "r").read(), "ZZ")'.format(str(path)))
-        if data.startswith('ZZ') and data.endswith('ZZ\r\n'):
-            return data[3:-4]
-        else:
-            raise IOError('file transfer failed (markers not found): {!r}...{!r}'.format(data[:10], data[-10:]))
+        # use the fact that python joins adjacent consecutive strings
+        # for the snippet here as well as for the data returned from target
+        return ast.literal_eval(self.protocol.exec(
+            '_f = open({!r}, "rb")\n'
+            'while True:\n'
+            '    _b = _f.read()\n'
+            '    if not _b: break\n'
+            '    print(_b)\n'
+            '_f.close(); del _f; del _b'.format(str(path))))
 
     def write_file(self, local_filename, path=None):
         if path is None:
@@ -143,10 +145,10 @@ def command_ls(m, args):
 
 def command_cat(m, args):
     """\
-    Print the contents of a text file from the target to stdout.
+    Print the contents of a file from the target to stdout.
     """
-    sys.stdout.write(m.read_file(args.path))
-    sys.stdout.write('\n')
+    sys.stdout.buffer.write(m.read_file(args.path))
+    sys.stdout.buffer.write(b'\n')
 
 
 def command_put(m, args):

@@ -14,15 +14,40 @@ from .speaking import nice_bytes, mode_to_chars
 from .string_escape import escaped
 from . import repl_connection
 
+
+def make_connection(args, port=None):
+    """make a conenction, port overrides args.port"""
+    m = repl_connection.MicroPythonRepl(port or args.port, args.baudrate)
+    m.protocol.verbose = args.verbose
+    return m
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def command_detect(m, args):
     """\
     Help finding MicroPython boards.
+
+    By default it simply lists all serial ports. If --test is used, each of
+    the ports is opened (with the given --baudrate) and tested for a Python
+    prompt. If there is no response it runs in a timout, so this option is
+    quite a bit slower that just listing the ports.
     """
     # list all serial ports
     for info in serial.tools.list_ports.comports():
-        sys.stdout.write('{!s}\n'.format(info))
+        if args.test:
+            try:
+                m = make_connection(args, port=info.device)
+                try:
+                    mpy_info = m.exec('import sys; print(sys.implementation)').strip()
+                finally:
+                    m.close()
+            except Exception as e:
+                mpy_info = str(e)
+            sys.stdout.write('{!s}: {}\n'.format(info, mpy_info))
+        else:
+            sys.stdout.write('{!s}\n'.format(info))
+
 
 def command_run(m, args):
     """\
@@ -110,6 +135,7 @@ def main():
     subparsers = parser.add_subparsers(help='sub-command help')
 
     parser_detect = subparsers.add_parser('detect', help='help locating a board')
+    parser_detect.add_argument('-t', '--test', action='store_true', help='open and test each port')
     parser_detect.set_defaults(func=command_detect)
 
     parser_run = subparsers.add_parser('run', help='execute file contents on target')
@@ -140,10 +166,11 @@ def main():
 
     args = parser.parse_args()
 
+    if args.command or args.interactive:
+        args.connect = True
+
     if args.connect:
-        m = repl_connection.MicroPythonRepl(args.port, args.baudrate)
-        if args.verbose:
-            m.protocol.verbose = args.verbose
+        m = make_connection(args)
     else:
         m = None
 
@@ -152,20 +179,16 @@ def main():
         if args.func:
             args.func(m, args)
         if args.command:
-            if m is None:
-                m = repl_connection.MicroPythonRepl(args.port, args.baudrate)
             sys.stdout.write(m.exec(args.command))
     except Exception as e:
-        sys.stderr.write('ERROR: command failed: {}\n'.format(e))
+        sys.stderr.write('ERROR: action or command failed: {}\n'.format(e))
         exitcode = 1
 
     if args.interactive:
-        if m is None:
-            m = repl_connection.MicroPythonRepl(args.port, args.baudrate)
         port = m.serial.name
         baudrate = m.serial.baudrate
         m.close(interrupt=False)
-        sys.argv = ['n/a']
+        sys.argv = ['n/a', '-f', 'direct']
         serial.tools.miniterm.main(port, baudrate)
 
     sys.exit(exitcode)

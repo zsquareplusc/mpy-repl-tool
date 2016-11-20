@@ -95,7 +95,12 @@ class MicroPythonRepl(object):
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
     def stat(self, path):
-        st = ast.literal_eval(self.protocol.exec('import os; print(os.stat({!r}))'.format(str(path))))
+        try:
+            st = ast.literal_eval(self.protocol.exec('import os; print(os.stat({!r}))'.format(str(path))))
+        except IOError as e:
+            if 'ENOENT' in str(e):
+                raise FileNotFoundError(path)
+            raise
         return os.stat_result(st)
 
     def remove(self, path):

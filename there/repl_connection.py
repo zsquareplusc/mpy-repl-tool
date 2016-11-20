@@ -8,11 +8,16 @@ import ast
 import posixpath
 import queue
 import os
+import re
+import stat
 import sys
 import time
 import traceback
 import serial
 import serial.threaded
+
+# match "OSError: [Errno 2] ENOENT" and "OSError: 2"
+re_oserror = re.compile(b'OSError: (\[Errno )?(\d+)(\] )?')
 
 
 def prefix(text, prefix):
@@ -32,7 +37,6 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         super().connection_made(transport)
         #~ sys.stderr.write('port opened\n')
 
-
     def handle_packet(self, data):
         #~ sys.stderr.write('response received: {!r}\n'.format(data))
         self.response.put(data)
@@ -41,6 +45,22 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         if exc:
             traceback.print_exc(exc)
         #~ sys.stderr.write('port closed\n')
+
+    def _parse_error(self, text):
+        """Read the error message and convert exceptions"""
+        lines = text.splitlines()
+        if lines[0].startswith(b'Traceback'):
+            m = re_oserror.match(lines[-1])
+            if m:
+                err_num = int(m.group(2))
+                if err_num == 2:
+                    raise FileNotFoundError(2)
+                elif err_num == 13:
+                    raise PermissionError(13)
+                elif err_num == 17:
+                    raise FileExistsError(17)
+                elif err_num:
+                    raise OSError(err_num)
 
     def exec(self, string, timeout=3):
         if self.verbose:
@@ -58,10 +78,11 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
             if not out.startswith(b'OK'):
                 raise IOError('data was not accepted: {}: {}'.format(out, err))
             if self.verbose:
-                sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O: '))  # XXX indent
+                sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O: '))
             if err:
                 if self.verbose:
-                    sys.stderr.write(prefix(err.decode('utf-8'), 'E: '))  # XXX indent
+                    sys.stderr.write(prefix(err.decode('utf-8'), 'E: '))
+                self._parse_error(err)
                 raise IOError('execution failed: {}: {}'.format(out, err))
             return out[2:].decode('utf-8')
 
@@ -87,38 +108,45 @@ class MicroPythonRepl(object):
         self._thread.close()
 
     def exec(self, string):
+        """execute the string on the target and return its output"""
         return self.protocol.exec(string)
 
+    def evaluate(self, string):
+        """execute string on the target and return its output parsed as python literal"""
+        return ast.literal_eval(self.exec(string))
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     def statvfs(self, path):
-        st = ast.literal_eval(self.protocol.exec('import os; print(os.statvfs({!r}))'.format(str(path))))
+        st = self.evaluate('import os; print(os.statvfs({!r}))'.format(str(path)))
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
     def stat(self, path):
-        try:
-            st = ast.literal_eval(self.protocol.exec('import os; print(os.stat({!r}))'.format(str(path))))
-        except IOError as e:
-            if 'ENOENT' in str(e):
-                raise FileNotFoundError(path)
-            raise
+        st = self.evaluate('import os; print(os.stat({!r}))'.format(str(path)))
+        # XXX fake some attributes: rw, uid/gid
+        st = list(st)
+        st[stat.ST_MODE] |= 0o660
+        st[stat.ST_GID] = os.getgid()
+        st[stat.ST_UID] = os.getuid()
         return os.stat_result(st)
 
     def remove(self, path):
-        return ast.literal_eval(self.protocol.exec('import os; print(os.remove({!r}))'.format(str(path))))
+        return self.evaluate('import os; print(os.remove({!r}))'.format(str(path)))
 
     def rename(self, path, path_to):
-        return ast.literal_eval(self.protocol.exec('import os; print(os.rename({!r}, {!r}))'.format(str(path), str(path_to))))
+        return self.evaluate('import os; print(os.rename({!r}, {!r}))'.format(str(path), str(path_to)))
 
     def mkdir(self, path):
-        return ast.literal_eval(self.protocol.exec('import os; print(os.mkdir({!r}))'.format(str(path))))
+        return self.evaluate('import os; print(os.mkdir({!r}))'.format(str(path)))
 
     def rmdir(self, path):
-        return ast.literal_eval(self.protocol.exec('import os; print(os.rmdir({!r}))'.format(str(path))))
+        return self.evaluate('import os; print(os.rmdir({!r}))'.format(str(path)))
 
     def read_file(self, path):
         # use the fact that Python joins adjacent consecutive strings
         # for the snippet here as well as for the data returned from target
-        return b''.join(ast.literal_eval(self.protocol.exec(
+        return b''.join(self.evaluate(
             '_f = open({!r}, "rb")\n'
             'print("[")\n'
             'while True:\n'
@@ -126,7 +154,7 @@ class MicroPythonRepl(object):
             '    if not _b: break\n'
             '    print(_b, ",")\n'
             'print("]")\n'
-            '_f.close(); del _f; del _b'.format(str(path)))))
+            '_f.close(); del _f; del _b'.format(str(path))))
 
     def write_file(self, local_filename, path=None):
         if path is None:
@@ -141,21 +169,18 @@ class MicroPythonRepl(object):
         if not isinstance(contents, (bytes, bytearray)):
             raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
         blocksize = 128
-        self.protocol.exec('_f = open({!r}, "wb")'.format(str(path)))
+        self.exec('_f = open({!r}, "wb")'.format(str(path)))
         for i in range(0, len(contents), blocksize):
-            self.protocol.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
-        self.protocol.exec('_f.close(); del _f;')
+            self.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
+        self.exec('_f.close(); del _f;')
 
     def truncate(self, path):
-        # use the fact that Python joins adjacent consecutive strings
-        # for the snippet here as well as for the data returned from target
-        return ast.literal_eval(self.protocol.exec(
+        return self.evaluate(
             '_f = open({!r}, "rw")\n'
             '_f.seek({})\n'
-            '_f.truncate()\n'
-            '_f.close(); del _f; del _b'.format(str(path), int(length))))
+            'print(_f.truncate())\n'
+            '_f.close(); del _f; del _b'.format(str(path), int(length)))
 
     def ls(self, path):
-        return ast.literal_eval(
-            self.protocol.exec('import os; print(os.listdir({path!r}))'.format(path=path)))
+        return self.evaluate('import os; print(os.listdir({path!r}))'.format(path=path))
 

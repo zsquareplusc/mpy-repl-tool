@@ -3,8 +3,11 @@
 import os
 import sys
 import errno
+import stat
+import time
 
 from fuse import FUSE, FuseOSError, Operations
+
 
 class FileBuffer(object):
     def __init__(self, path, contents=b''):
@@ -12,61 +15,79 @@ class FileBuffer(object):
         self.buffer = bytearray(contents)
         self.modified = False
 
-S_IFDIR = 0x4000
-S_IFREG = 0x8000
+
+class Cache(object):
+    def __init__(self, max_age=10):
+        self._max_age = max_age
+        self._entries = {}
+
+    def __setitem__(self, key, item):
+        self._entries[key] = item, time.time()
+
+    def __getitem__(self, key):
+        value, timestamp = self._entries[key]  # may raise KeyError, that's OK
+        if timestamp + self._max_age < time.time():
+            # too old, discard
+            raise KeyError('entry {} too old'.format(key))
+        return value
+
+    def __delitem__(self, key):
+        del self._entries[key]
+
+    def forget(self, key):
+        """Remove key, no error if not present"""
+        try:
+            del self._entries[key]
+        except KeyError:
+            pass
+
 
 class ReplFileTransfer(Operations):
     def __init__(self, file_interface):
         self.file_interface = file_interface
         self.files = {}
         self.handle_counter = 0
+        self._max_age = 10  # seconds
+        self._stat_cache = Cache(self._max_age)
+        self._listdir_cache = Cache(self._max_age)
+        # XXX currently there is no cleanup of old entries in those caches
 
     # file system methods
 
-    def access(self, path, mode):
-        return
-        #~ st = self.file_interface.stat(path)
-        #~ if not os.access(full_path, mode):
-            #~ raise FuseOSError(errno.EACCES)
-
-    def chmod(self, path, mode):
-        raise FuseOSError(errno.EPERM)
-        #~ return os.chmod(full_path, mode)
-
-    def chown(self, path, uid, gid):
-        raise FuseOSError(errno.EPERM)
-        #~ return os.chown(full_path, uid, gid)
+    def _stat(self, path):
+        try:
+            st = self._stat_cache[path]
+        except KeyError:
+            try:
+                st = self.file_interface.stat(path)
+            except (IOError, FileNotFoundError) as e:
+                raise FuseOSError(errno.ENOENT)
+            else:
+                self._stat_cache[path] = st
+        return st
 
     def getattr(self, path, fh=None):
-        try:
-            st = self.file_interface.stat(path)
-        except IOError as e:
-            raise FuseOSError(errno.ENOENT)
-        else:
-            return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
-                         'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+        if fh is not None:
+            path = self.files[fh].path
+        st = self._stat(path)
+        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
+                     'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
 
     def readdir(self, path, fh):
-        st = self.file_interface.ls(path)
-        dirents = ['.', '..']
-        if (self.file_interface.stat(path).st_mode & S_IFDIR) != 0:
-            dirents.extend(self.file_interface.ls(path))
+        try:
+            dirents = self._listdir_cache[path]
+        except KeyError:
+            st = self.file_interface.ls(path)
+            dirents = ['.', '..']
+            if (self._stat(path).st_mode & stat.S_IFDIR) != 0:
+                dirents.extend(self.file_interface.ls(path))
+            self._listdir_cache[path] = dirents
         for r in dirents:
             yield r
 
-    def readlink(self, path):
-        raise FuseOSError(errno.EPERM)
-        #~ pathname = os.readlink(self._full_path(path))
-        #~ if pathname.startswith("/"):
-            #~ # Path name is absolute, sanitize it.
-            #~ return os.path.relpath(pathname, self.root)
-        #~ else:
-            #~ return pathname
-
-    def mknod(self, path, mode, dev):
-        raise FuseOSError(errno.EPERM)
-
     def rmdir(self, path):
+        self._stat_cache.forget(path)
+        self._listdir_cache.forget(path)
         return self.file_interface.rmdir(path)
 
     def mkdir(self, path, mode):
@@ -79,27 +100,18 @@ class ReplFileTransfer(Operations):
             'f_frsize', 'f_namemax'))
 
     def unlink(self, path):
+        self._stat_cache.forget(path)
+        self._listdir_cache.forget(os.path.dirname(path))
         return self.file_interface.remove(path)
 
-    def symlink(self, name, target):
-        raise FuseOSError(errno.EPERM)
-        #~ return os.symlink(name, self._full_path(target))
-
     def rename(self, old, new):
+        self._stat_cache.forget(old)
+        self._listdir_cache.forget(os.path.dirname(old))
         try:
             return self.file_interface.rename(old, new)
-        except IOError as e:
-            if 'EEXIST' in str(e):
-                self.file_interface.remove(new)
-                return self.file_interface.rename(old, new)
-
-
-    def link(self, target, name):
-        raise FuseOSError(errno.EPERM)
-
-    def utimens(self, path, times=None):
-        raise FuseOSError(errno.EPERM)
-        #~ return os.utime(self._full_path(path), times)
+        except FileExistsError as e:
+            self.file_interface.remove(new)
+            return self.file_interface.rename(old, new)
 
     # file methods
 
@@ -133,7 +145,6 @@ class ReplFileTransfer(Operations):
         else:
             self.file_interface.truncate(f.path, length)
 
-
     def flush(self, path, fh):
         f = self.files[fh]
         if f.modified:
@@ -151,4 +162,5 @@ class ReplFileTransfer(Operations):
 
 def mount(file_interface, mountpoint):
     FUSE(ReplFileTransfer(file_interface), mountpoint, nothreads=True, foreground=True)
+    #~ FUSE(ReplFileTransfer(file_interface), mountpoint, nothreads=True, foreground=True, debug=True)
 

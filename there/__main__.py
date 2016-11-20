@@ -7,7 +7,9 @@
 import posixpath
 import os
 import sys
+import stat
 import time
+import glob
 import serial.tools.list_ports
 import serial.tools.miniterm
 from .speaking import nice_bytes, mode_to_chars
@@ -30,7 +32,7 @@ def command_detect(m, args):
 
     By default it simply lists all serial ports. If --test is used, each of
     the ports is opened (with the given --baudrate) and tested for a Python
-    prompt. If there is no response it runs in a timout, so this option is
+    prompt. If there is no response it runs in a timeout, so this option is
     quite a bit slower that just listing the ports.
     """
     # list all serial ports
@@ -90,19 +92,56 @@ def command_cat(m, args):
 
 def command_rm(m, args):
     """\
-    Remove files on target
+    Remove files on target.§
     """
     for path in args.PATH:
         m.remove(path)
 
+EXCLUDE_DIRS = ['__pycache__']
 
 def command_put(m, args):
     """\
     Copy a file from here to there.
     """
-    for path in args.PATH:
-        # XXX smarter handling of directories, just cutting the path away is not so good.
-        m.write_file(path, os.path.basename(path))
+    dst = args.DST[0]
+    try:
+        dst_dir = (m.stat(dst).st_mode & stat.S_IFDIR) != 0
+        dst_exists = True
+    except FileNotFoundError:
+        dst_dir = False
+        dst_exists = False
+    if args.recursive:
+        files = []
+        for src in args.SRC:
+            for path in glob.glob(src):
+                if os.path.isdir(path):
+                    if path in EXCLUDE_DIRS:
+                        continue
+                    for dirpath, dirnames, filenames in os.walk(path):
+                        for dir in EXCLUDE_DIRS:
+                            try:
+                                dirnames.remove(dir)
+                            except ValueError:
+                                pass
+                        for filename in filenames:
+                            files.append(os.path.join(dirpath, filename))
+                else:
+                    files.append(path)
+    else:
+        # expand the patterns for our windows users ;-)
+        files = sum((glob.glob(src) for src in args.SRC), [])
+    if len(files) > 1:
+        if not dst_dir:
+            raise ValueError('destination must be a directory')
+        if not dst_exists:
+            raise ValueError('destination directory must exist')
+        for filename in files:
+            m.write_file(path, posixpath.join(dst, filename))
+    else:
+        if dst_dir:
+            m.write_file(files[0], posixpath.join(dst, os.path.basename(files[0])))
+        else:
+            m.write_file(files[0], dst)
 
 
 def command_mount(m, args):
@@ -130,6 +169,7 @@ def main():
     parser.add_argument('-c', '--command', help='execute given code on target')
     parser.add_argument('-i', '--interactive', action='store_true', help='drop to interactive shell at the end')
     parser.add_argument('-v', '--verbose', action='store_true', help='show diagnostic messages')
+    parser.add_argument('--develop', action='store_true', help='show tracebacks on errors (development of this tool)')
     parser.set_defaults(connect=False, func=lambda m, args: 0)
 
     subparsers = parser.add_subparsers(help='sub-command help')
@@ -147,12 +187,15 @@ def main():
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
     parser_ls.set_defaults(func=command_ls, connect=True)
 
-    parser_cat = subparsers.add_parser('cat', help='print content of one file')
+    parser_cat = subparsers.add_parser('cat', help='print contents of one file')
     parser_cat.add_argument('PATH', help='filename on target')
     parser_cat.set_defaults(func=command_cat, connect=True)
 
+
     parser_put = subparsers.add_parser('put', help='file(s) to copy onto target')
-    parser_put.add_argument('PATH', nargs='+', help='files to copy')
+    parser_put.add_argument('SRC', nargs='+', help='one or more source files/directories')
+    parser_put.add_argument('DST', nargs=1, help='destination directory')
+    parser_put.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_put.set_defaults(func=command_put, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files on target')
@@ -181,6 +224,8 @@ def main():
         if args.command:
             sys.stdout.write(m.exec(args.command))
     except Exception as e:
+        if args.develop:
+            raise
         sys.stderr.write('ERROR: action or command failed: {}\n'.format(e))
         exitcode = 1
 

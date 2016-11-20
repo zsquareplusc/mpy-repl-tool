@@ -23,10 +23,15 @@ setup(
     #~ classifiers=[
     #~ ],
     platforms='any',
-    install_requires=['pyserial>=3'],
+    install_requires=[
+        'pyserial>=3'
+    ],
+    extras_require={
+        'mount': ['fusepy'],
+    }
     entry_points={
-        "distutils.commands": [
-            "there = there.__main__:main",
+        'console_scripts': [
+            'there = there.__main__:main',
         ],
     },
 )

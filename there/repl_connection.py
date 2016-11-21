@@ -122,13 +122,14 @@ class MicroPythonRepl(object):
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
-    def stat(self, path):
+    def stat(self, path, fake_attrs=False):
         st = self.evaluate('import os; print(os.stat({!r}))'.format(str(path)))
-        # XXX fake some attributes: rw, uid/gid
-        st = list(st)
-        st[stat.ST_MODE] |= 0o660
-        st[stat.ST_GID] = os.getgid()
-        st[stat.ST_UID] = os.getuid()
+        if fake_attrs:
+            # XXX fake some attributes: rw, uid/gid
+            st = list(st)
+            st[stat.ST_MODE] |= 0o660
+            st[stat.ST_GID] = os.getgid()
+            st[stat.ST_UID] = os.getuid()
         return os.stat_result(st)
 
     def remove(self, path):

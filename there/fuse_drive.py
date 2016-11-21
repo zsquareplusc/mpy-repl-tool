@@ -59,7 +59,7 @@ class ReplFileTransfer(Operations):
             st = self._stat_cache[path]
         except KeyError:
             try:
-                st = self.file_interface.stat(path)
+                st = self.file_interface.stat(path, fake_attrs=True)
             except (IOError, FileNotFoundError) as e:
                 raise FuseOSError(errno.ENOENT)
             else:
@@ -130,20 +130,22 @@ class ReplFileTransfer(Operations):
         return fileno
 
     def read(self, path, length, offset, fh):
-        return bytes(self.files[fh].buffer[offset:offset+length])
+        return bytes(self.files[fh].buffer[offset:offset + length])
 
     def write(self, path, buf, offset, fh):
         length = len(buf)
         self.files[fh].modified = True
-        self.files[fh].buffer[offset:offset+length] = buf
+        self.files[fh].buffer[offset:offset + length] = buf
         return length
 
     def truncate(self, path, length, fh=None):
         if fh is not None:
             self.files[fh].modified = True
             del self.files[fh].buffer[length:]
+            self._stat_cache.forget(self.files[fh].path)
         else:
-            self.file_interface.truncate(f.path, length)
+            self.file_interface.truncate(path, length)
+            self._stat_cache.forget(path)
 
     def flush(self, path, fh):
         f = self.files[fh]

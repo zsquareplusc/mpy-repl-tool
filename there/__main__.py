@@ -20,7 +20,7 @@ from . import repl_connection
 def make_connection(args, port=None):
     """make a conenction, port overrides args.port"""
     m = repl_connection.MicroPythonRepl(port or args.port, args.baudrate)
-    m.protocol.verbose = args.verbose
+    m.protocol.verbose = args.verbose > 1
     return m
 
 
@@ -97,7 +97,18 @@ def command_rm(m, args):
     for path in args.PATH:
         m.remove(path)
 
+
 EXCLUDE_DIRS = ['__pycache__']
+
+def ensure_dir(m, path):
+    try:
+        st = m.stat(path)
+    except FileNotFoundError:
+        m.mkdir(path)
+    else:
+        if (st.st_mode & stat.S_IFDIR) == 0:
+            raise FileExistsError('there is a file in the way: {}'.format(path))
+
 
 def command_put(m, args):
     """\
@@ -110,38 +121,49 @@ def command_put(m, args):
     except FileNotFoundError:
         dst_dir = False
         dst_exists = False
-    if args.recursive:
-        files = []
-        for src in args.SRC:
-            for path in glob.glob(src):
-                if os.path.isdir(path):
-                    if path in EXCLUDE_DIRS:
-                        continue
-                    for dirpath, dirnames, filenames in os.walk(path):
-                        for dir in EXCLUDE_DIRS:
-                            try:
-                                dirnames.remove(dir)
-                            except ValueError:
-                                pass
-                        for filename in filenames:
-                            files.append(os.path.join(dirpath, filename))
-                else:
-                    files.append(path)
-    else:
-        # expand the patterns for our windows users ;-)
-        files = sum((glob.glob(src) for src in args.SRC), [])
-    if len(files) > 1:
+    # expand the patterns for our windows users ;-)
+    paths = sum((glob.glob(src) for src in args.SRC), [])
+    if len(paths) > 1:
         if not dst_dir:
             raise ValueError('destination must be a directory')
         if not dst_exists:
             raise ValueError('destination directory must exist')
-        for filename in files:
-            m.write_file(path, posixpath.join(dst, filename))
-    else:
-        if dst_dir:
-            m.write_file(files[0], posixpath.join(dst, os.path.basename(files[0])))
+    for path in paths:
+        if os.path.isdir(path):
+            if os.path.basename(path) in EXCLUDE_DIRS:
+                continue
+            if args.recursive:
+                root = os.path.dirname(path)
+                for dirpath, dirnames, filenames in os.walk(path):
+                    relpath = os.path.relpath(dirpath, root)
+                    if not args.dry_run:
+                        ensure_dir(m, posixpath.join(dst, relpath))
+                    for dir in EXCLUDE_DIRS:
+                        try:
+                            dirnames.remove(dir)
+                        except ValueError:
+                            pass
+                    for filename in filenames:
+                        if args.verbose:
+                            sys.stderr.write('{} -> {}\n'.format(
+                                os.path.join(dirpath, filename),
+                                posixpath.join(dst, relpath, filename)))
+                        if not args.dry_run:
+                            m.write_file(os.path.join(dirpath, filename),
+                                         posixpath.join(dst, relpath, filename))
+            else:
+                sys.stderr.write('skiping directory {}\n'.format(path))
         else:
-            m.write_file(files[0], dst)
+            if dst_dir:
+                if args.verbose:
+                    sys.stderr.write('{} -> {}\n'.format(path, posixpath.join(dst, os.path.basename(path))))
+                if not args.dry_run:
+                    m.write_file(path, posixpath.join(dst, os.path.basename(path)))
+            else:
+                if args.verbose:
+                    sys.stderr.write('{} -> {}\n'.format(path, dst))
+                if not args.dry_run:
+                    m.write_file(path, dst)
 
 
 def command_mount(m, args):
@@ -168,7 +190,7 @@ def main():
     parser.add_argument('-b', '--baudrate', default=os.environ.get('MPY_BAUDRATE', '115200'), type=int, help='set the baud rate')
     parser.add_argument('-c', '--command', help='execute given code on target')
     parser.add_argument('-i', '--interactive', action='store_true', help='drop to interactive shell at the end')
-    parser.add_argument('-v', '--verbose', action='store_true', help='show diagnostic messages')
+    parser.add_argument('-v', '--verbose', action='count', default=0, help='show diagnostic messages')
     parser.add_argument('--develop', action='store_true', help='show tracebacks on errors (development of this tool)')
     parser.set_defaults(connect=False, func=lambda m, args: 0)
 
@@ -196,6 +218,7 @@ def main():
     parser_put.add_argument('SRC', nargs='+', help='one or more source files/directories')
     parser_put.add_argument('DST', nargs=1, help='destination directory')
     parser_put.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
+    parser_put.add_argument('--dry-run', action='store_true', help='do not actually create anythin on target')
     parser_put.set_defaults(func=command_put, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files on target')

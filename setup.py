@@ -28,7 +28,7 @@ setup(
     ],
     extras_require={
         'mount': ['fusepy'],
-    }
+    },
     entry_points={
         'console_scripts': [
             'there = there.__main__:main',

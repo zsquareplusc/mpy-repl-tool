@@ -19,7 +19,10 @@ from . import miniterm_mpy
 
 def make_connection(args, port=None):
     """make a conenction, port overrides args.port"""
-    m = repl_connection.MicroPythonRepl(port or args.port, args.baudrate)
+    m = repl_connection.MicroPythonRepl(port or args.port,
+                                        args.baudrate,
+                                        user=args.user,
+                                        password=args.password)
     m.protocol.verbose = args.verbose > 1
     return m
 
@@ -190,6 +193,8 @@ def main():
     parser.add_argument('-b', '--baudrate', default=os.environ.get('MPY_BAUDRATE', '115200'), type=int, help='set the baud rate')
     parser.add_argument('-c', '--command', help='execute given code on target')
     parser.add_argument('-i', '--interactive', action='store_true', help='drop to interactive shell at the end')
+    parser.add_argument('-u', '--user', help='respondse to login prompt')
+    parser.add_argument('-w', '--password', help='respondse to password prompt')
     parser.add_argument('-v', '--verbose', action='count', default=0, help='show diagnostic messages')
     parser.add_argument('--develop', action='store_true', help='show tracebacks on errors (development of this tool)')
     parser.set_defaults(connect=False, func=lambda m, args: 0)

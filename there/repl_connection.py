@@ -88,9 +88,20 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
 
 
 class MicroPythonRepl(object):
-    def __init__(self, port='hwgrep://VID:PID=1A86:7523', baudrate=115200):
+    def __init__(self, port='hwgrep://VID:PID=1A86:7523', baudrate=115200, user=None, password=None):
         self.serial = None
         self.serial = serial.serial_for_url(port, baudrate=baudrate, timeout=1)
+        if user is not None:
+            time.sleep(0.1)
+            self.serial.read_until(b'Login as: ')
+            time.sleep(0.1)
+            self.serial.write(user.encode('utf-8'))
+            self.serial.write(b'\r\n')
+        if password is not None:
+            self.serial.read_until(b'Password: ')
+            time.sleep(0.1)
+            self.serial.write(password.encode('utf-8'))
+            self.serial.write(b'\r\n')
         self.serial.write(b'\x03')  # CTRL+C
         time.sleep(0.2)
         self.serial.write(b'\x03\x01')  # enter raw repl mode

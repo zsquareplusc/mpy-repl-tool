@@ -178,7 +178,7 @@ def command_mount(m, args):
     if args.explore:
         subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
-        fuse_drive.mount(m, args.MOUNTPOINT)
+        fuse_drive.mount(m, args.MOUNTPOINT, args.verbose)
     except RuntimeError:
         sys.stderr.write('ERROR: Could not mount - note: directory must exist\n')
 

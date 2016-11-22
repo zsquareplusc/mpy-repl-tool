@@ -43,8 +43,9 @@ class Cache(object):
 
 
 class ReplFileTransfer(Operations):
-    def __init__(self, file_interface):
+    def __init__(self, file_interface, verbose):
         self.file_interface = file_interface
+        self.verbose = verbose
         self.files = {}
         self.handle_counter = 0
         self._max_age = 10  # seconds
@@ -162,7 +163,6 @@ class ReplFileTransfer(Operations):
                 f.modified = False
 
 
-def mount(file_interface, mountpoint):
-    FUSE(ReplFileTransfer(file_interface), mountpoint, nothreads=True, foreground=True)
-    #~ FUSE(ReplFileTransfer(file_interface), mountpoint, nothreads=True, foreground=True, debug=True)
+def mount(file_interface, mountpoint, verbosity):
+    FUSE(ReplFileTransfer(file_interface, verbose=verbosity), mountpoint, nothreads=True, foreground=True, debug=verbosity > 2)
 

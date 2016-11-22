@@ -11,10 +11,10 @@ import stat
 import time
 import glob
 import serial.tools.list_ports
-import serial.tools.miniterm
 from .speaking import nice_bytes, mode_to_chars
 from .string_escape import escaped
 from . import repl_connection
+from . import miniterm_mpy
 
 
 def make_connection(args, port=None):
@@ -92,7 +92,7 @@ def command_cat(m, args):
 
 def command_rm(m, args):
     """\
-    Remove files on target.§
+    Remove files on target.
     """
     for path in args.PATH:
         m.remove(path)
@@ -257,7 +257,7 @@ def main():
         baudrate = m.serial.baudrate
         m.close(interrupt=False)
         sys.argv = ['n/a', '-f', 'direct']
-        serial.tools.miniterm.main(port, baudrate)
+        miniterm_mpy.main(port, baudrate)
 
     sys.exit(exitcode)
 

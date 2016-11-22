@@ -24,7 +24,8 @@ setup(
     #~ ],
     platforms='any',
     install_requires=[
-        'pyserial>=3'
+        'pyserial>=3',
+        'colorama',
     ],
     extras_require={
         'mount': ['fusepy'],

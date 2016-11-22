@@ -253,11 +253,11 @@ def main():
         exitcode = 1
 
     if args.interactive:
-        port = m.serial.name
-        baudrate = m.serial.baudrate
-        m.close(interrupt=False)
+        m.stop(interrupt=False)
         sys.argv = ['n/a', '-f', 'direct']
-        miniterm_mpy.main(port, baudrate)
+        miniterm_mpy.main(serial_instance=m.serial)
+    else:
+        m.close(interrupt=False)
 
     sys.exit(exitcode)
 

@@ -755,7 +755,7 @@ class Miniterm(object):
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # default args can be used to override when calling main() from an other script
 # e.g to create a miniterm-my-device.py
-def main(default_port=None, default_baudrate=9600, default_rts=None, default_dtr=None):
+def main(default_port=None, default_baudrate=9600, default_rts=None, default_dtr=None, serial_instance=None):
     """Command line tool, entry point"""
 
     import argparse
@@ -897,7 +897,7 @@ def main(default_port=None, default_baudrate=9600, default_rts=None, default_dtr
     else:
         filters = ['default']
 
-    while True:
+    while serial_instance is None:
         # no port given on command line -> ask user now
         if args.port is None or args.port == '-':
             try:
@@ -917,10 +917,6 @@ def main(default_port=None, default_baudrate=9600, default_rts=None, default_dtr
                 xonxoff=args.xonxoff,
                 do_not_open=True)
 
-            if not hasattr(serial_instance, 'cancel_read'):
-                # enable timeout for alive flag polling if cancel_read is not available
-                serial_instance.timeout = 1
-
             if args.dtr is not None:
                 if not args.quiet:
                     sys.stderr.write('--- forcing DTR {}\n'.format('active' if args.dtr else 'inactive'))
@@ -932,6 +928,7 @@ def main(default_port=None, default_baudrate=9600, default_rts=None, default_dtr
 
             serial_instance.open()
         except serial.SerialException as e:
+            serial_instance = None
             sys.stderr.write('could not open port {}: {}\n'.format(repr(args.port), e))
             if args.develop:
                 raise
@@ -941,6 +938,10 @@ def main(default_port=None, default_baudrate=9600, default_rts=None, default_dtr
                 args.port = '-'
         else:
             break
+
+    if not hasattr(serial_instance, 'cancel_read'):
+        # enable timeout for alive flag polling if cancel_read is not available
+        serial_instance.timeout = 1
 
     miniterm = Miniterm(
         serial_instance,

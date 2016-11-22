@@ -102,6 +102,13 @@ class MicroPythonRepl(object):
         self._thread.start()
         self.transport, self.protocol = self._thread.connect()
 
+    def stop(self, interrupt=True):
+        if interrupt:
+            self.serial.write(b'\x03\x02')  # exit raw repl mode, and interrupt
+        else:
+            self.serial.write(b'\x02')  # exit raw repl mode
+        self._thread.stop()
+
     def close(self, interrupt=True):
         if interrupt:
             self.serial.write(b'\x03\x02')  # exit raw repl mode, and interrupt

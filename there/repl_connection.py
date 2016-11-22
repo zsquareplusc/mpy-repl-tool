@@ -104,7 +104,9 @@ class MicroPythonRepl(object):
 
     def close(self, interrupt=True):
         if interrupt:
-            self.serial.write(b'\x03\x02')  # enter raw repl mode
+            self.serial.write(b'\x03\x02')  # exit raw repl mode, and interrupt
+        else:
+            self.serial.write(b'\x02')  # exit raw repl mode
         self._thread.close()
 
     def exec(self, string):

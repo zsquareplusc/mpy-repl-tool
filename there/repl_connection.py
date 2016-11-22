@@ -102,11 +102,16 @@ class MicroPythonRepl(object):
             time.sleep(0.1)
             self.serial.write(password.encode('utf-8'))
             self.serial.write(b'\r\n')
-        self.serial.write(b'\x03')  # CTRL+C
+            time.sleep(0.1)
+        self.serial.write(b'\x03\x02')  # CTRL+C, exit raw repl
         time.sleep(0.2)
-        self.serial.write(b'\x03\x01')  # enter raw repl mode
+        self.serial.write(b'\x03\x01')  # CTRL+C, enter raw repl mode
         time.sleep(0.2)
-        self.serial.reset_input_buffer()
+        if port.startswith('socket://'):
+            # hack as reset_input_buffer does not clear anything on socket connections as of pySerial 3.1
+            self.serial._socket.recv(10000)  # clear input, use timeout
+        else:
+            self.serial.reset_input_buffer()
 
         self._thread = serial.threaded.ReaderThread(self.serial, MicroPythonReplProtocol)
         self._thread.daemon = True

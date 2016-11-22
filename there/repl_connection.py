@@ -128,8 +128,11 @@ class MicroPythonRepl(object):
             # XXX fake some attributes: rw, uid/gid
             st = list(st)
             st[stat.ST_MODE] |= 0o660
-            st[stat.ST_GID] = os.getgid()
-            st[stat.ST_UID] = os.getuid()
+            try:
+                st[stat.ST_GID] = os.getgid()
+                st[stat.ST_UID] = os.getuid()
+            except AttributeError:
+                pass  # Windwos
         return os.stat_result(st)
 
     def remove(self, path):

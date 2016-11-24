@@ -275,10 +275,11 @@ def main():
         exitcode = 1
 
     if args.interactive:
-        m.stop(interrupt=False)
+        if m:
+            m.stop(interrupt=False)
         sys.argv = ['n/a', '-f', 'direct']
         miniterm_mpy.main(serial_instance=m.serial)
-    else:
+    elif m:
         m.close(interrupt=False)
 
     sys.exit(exitcode)

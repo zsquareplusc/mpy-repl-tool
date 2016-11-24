@@ -29,14 +29,21 @@ One ``--verbose`` prints progress information on stderr for some actions, e.g.
 ``put``. A second and or third ``--verbose`` (e.g. ``-vv``) also prints the
 data exchanged between PC and target.
 
-Global options must be mentioned before the action, options for the action
-itself after that.
-
 The order of operation is as follows:
 
 1) execute action
 2) run statements that are given with ``--command``
 3) start miniterm if ``--interactive`` is given
+
+The environment variables ``MPY_PORT``, ``MPY_BAUDRATE``, ``MPY_USER`` and
+``MPY_PASSWORD`` are used as defaults if the corresponding command line options
+are not given. And if those are not given, the default is ``hwgrep://USB`` and
+115200 baud, and None for user and password.
+
+``hwgrep://USB`` picks a random USB-Serial adapter, works best if there
+is only one micropython board connected. Otherwise the detect action should
+be used to find the comport and use ``--port`` option or environment
+variable.
 
 
 Actions

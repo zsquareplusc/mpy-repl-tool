@@ -189,50 +189,65 @@ def command_mount(m, args):
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='Do stuff via the MicroPython REPL')
+    global_options = argparse.ArgumentParser(add_help=False)
+    global_options.add_argument('-p', '--port',
+        default=os.environ.get('MPY_PORT', 'hwgrep://USB'),
+        help='set the serial port')
+    global_options.add_argument('-b', '--baudrate', type=int,
+        default=os.environ.get('MPY_BAUDRATE', '115200'),
+        help='set the baud rate')
+    global_options.add_argument('-c', '--command',
+        help='execute given code on target')
+    global_options.add_argument('-i', '--interactive', action='store_true',
+        help='drop to interactive shell at the end')
+    global_options.add_argument('-u', '--user',
+        default=os.environ.get('MPY_USER'),
+        help='response to login prompt')
+    global_options.add_argument('-w', '--password',
+        default=os.environ.get('MPY_PASSWORD'),
+        help='response to password prompt')
+    global_options.add_argument('-v', '--verbose', action='count', default=0,
+        help='show diagnostic messages')
+    global_options.add_argument('--develop', action='store_true',
+        help='show tracebacks on errors (development of this tool)')
 
-    parser.add_argument('-p', '--port', default=os.environ.get('MPY_PORT', 'hwgrep://USB'), help='set the serial port')
-    parser.add_argument('-b', '--baudrate', default=os.environ.get('MPY_BAUDRATE', '115200'), type=int, help='set the baud rate')
-    parser.add_argument('-c', '--command', help='execute given code on target')
-    parser.add_argument('-i', '--interactive', action='store_true', help='drop to interactive shell at the end')
-    parser.add_argument('-u', '--user', help='respondse to login prompt')
-    parser.add_argument('-w', '--password', help='respondse to password prompt')
-    parser.add_argument('-v', '--verbose', action='count', default=0, help='show diagnostic messages')
-    parser.add_argument('--develop', action='store_true', help='show tracebacks on errors (development of this tool)')
+    parser = argparse.ArgumentParser(
+        description='Do stuff via the MicroPython REPL',
+        parents=[global_options])
     parser.set_defaults(connect=False, func=lambda m, args: 0)
 
     subparsers = parser.add_subparsers(help='sub-command help')
 
-    parser_detect = subparsers.add_parser('detect', help='help locating a board')
+    parser_detect = subparsers.add_parser('detect', help='help locating a board', parents=[global_options])
     parser_detect.add_argument('-t', '--test', action='store_true', help='open and test each port')
     parser_detect.set_defaults(func=command_detect)
 
-    parser_run = subparsers.add_parser('run', help='execute file contents on target')
+    parser_run = subparsers.add_parser('run', help='execute file contents on target', parents=[global_options])
     parser_run.add_argument('FILE', nargs='?', help='load this file contents')
     parser_run.set_defaults(func=command_run, connect=True)
 
-    parser_ls = subparsers.add_parser('ls', help='list files')
+    parser_ls = subparsers.add_parser('ls', help='list files', parents=[global_options])
     parser_ls.add_argument('PATH', nargs='*', default='/', help='paths to list')
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
     parser_ls.set_defaults(func=command_ls, connect=True)
 
-    parser_cat = subparsers.add_parser('cat', help='print contents of one file')
+    parser_cat = subparsers.add_parser('cat', help='print contents of one file', parents=[global_options])
     parser_cat.add_argument('PATH', help='filename on target')
     parser_cat.set_defaults(func=command_cat, connect=True)
 
 
-    parser_put = subparsers.add_parser('put', help='file(s) to copy onto target')
+    parser_put = subparsers.add_parser('put', help='file(s) to copy onto target', parents=[global_options])
     parser_put.add_argument('SRC', nargs='+', help='one or more source files/directories')
     parser_put.add_argument('DST', nargs=1, help='destination directory')
     parser_put.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_put.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_put.set_defaults(func=command_put, connect=True)
 
-    parser_rm = subparsers.add_parser('rm', help='remove files on target')
+    parser_rm = subparsers.add_parser('rm', help='remove files on target', parents=[global_options])
     parser_rm.add_argument('PATH', nargs='+', help='filename on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 
-    parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE')
+    parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE', parents=[global_options])
     parser_mount.add_argument('MOUNTPOINT', help='local mount point, directory must exist')
     parser_mount.add_argument('-e', '--explore', action='store_true', help='auto open file explorer at mount point')
     parser_mount.set_defaults(func=command_mount, connect=True)

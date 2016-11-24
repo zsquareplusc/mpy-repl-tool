@@ -2,7 +2,9 @@
  Getting Started
 =================
 
-Installation::
+Installation
+============
+::
 
     python3 -m pip install mpy-repl-tool
     python3 -m pip install "mpy-repl-tool[mount]"
@@ -10,7 +12,9 @@ Installation::
 Use the second line to support the ``mount`` command. On windows, use ``py -3``
 instead of ``python3``.
 
-Find a micropython board::
+Find a micropython board
+========================
+::
 
     # list serial ports
     python3 -m there detect
@@ -23,7 +27,9 @@ The following examples automatically pick the first USB-Serial adapter to
 communicate, add a ``-p COMxy`` option or set the ``MPY_PORT`` environment
 variable to choose a different one.
 
-Usage examples::
+Usage examples
+==============
+::
 
     # run a file without copying it to the target's file system:
     python3 -m there run test.py

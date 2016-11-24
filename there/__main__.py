@@ -97,6 +97,7 @@ def command_rm(m, args):
     """\
     Remove files on target.
     """
+    # XXX use glob, --force option, --recursive option
     for path in args.PATH:
         m.remove(path)
 
@@ -176,6 +177,7 @@ def command_mount(m, args):
     from . import fuse_drive
     import subprocess
     if args.explore:
+        # XXX this is for linux, use os.startfile() on windows
         subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
         fuse_drive.mount(m, args.MOUNTPOINT, args.verbose)
@@ -223,7 +225,7 @@ def main():
     parser_put.add_argument('SRC', nargs='+', help='one or more source files/directories')
     parser_put.add_argument('DST', nargs=1, help='destination directory')
     parser_put.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
-    parser_put.add_argument('--dry-run', action='store_true', help='do not actually create anythin on target')
+    parser_put.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_put.set_defaults(func=command_put, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files on target')

@@ -164,5 +164,5 @@ class ReplFileTransfer(Operations):
 
 
 def mount(file_interface, mountpoint, verbosity):
-    FUSE(ReplFileTransfer(file_interface, verbose=verbosity), mountpoint, nothreads=True, foreground=True, debug=verbosity > 2)
+    FUSE(ReplFileTransfer(file_interface, verbose=verbosity), mountpoint, nothreads=True, foreground=True, debug=verbosity > 0)
 

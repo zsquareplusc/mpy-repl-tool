@@ -36,3 +36,8 @@ to::
 
 Now it is possible to use ``py -3 -m there mount xxx`` where xxx is an existing
 directory and the data is then visible in that directory.
+
+License
+=======
+
+.. include:: ../LICENSE.txt

@@ -12,6 +12,11 @@ Installation
 Use the second line to support the ``mount`` command. On windows, use ``py -3``
 instead of ``python3``.
 
+The source code is available at github_.
+
+.. _github: https://github.com/zsquareplusc/mpy-repl-tool
+
+
 Find a micropython board
 ========================
 ::
@@ -57,14 +62,14 @@ An few statements can be executed using ``-c`` and it can be combined with other
 
     python3 -m there -i -c "main()" put main.py /
 
-When FUSE is installed on the system and ``fusepy`` was installed, it is also
+When FUSE is available on the system and ``fusepy`` was installed, it is also
 possible to browse the files in a file navigator/explorer::
 
     mkdir mpy-board
-    python-3 -m there mount mpy-board
+    python3 -m there mount mpy-board
 
 See also :ref:`mount_windows`, it currently requires a hack to get it working there.
 
-Connection to telnet repls such as the one provided by the WiPy is also possible::
+Connection to telnet REPLs such as the one provided by the WiPy is also possible::
 
     python3 -m there -p socket://192.168.1.1:23 -u micro -w python -i

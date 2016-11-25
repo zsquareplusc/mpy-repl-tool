@@ -4,14 +4,22 @@
 
 Overview
 ========
-usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-v]
-             [--develop]
+usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-u USER]
+             [-w PASSWORD] [-v] [--develop]
              {detect,run,ls,cat,put,rm,mount} ...
 
 Do stuff via the MicroPython REPL
 
 positional arguments:
   {detect,run,ls,cat,put,rm,mount}
+                        sub-command help
+    detect              help locating a board
+    run                 execute file contents on target
+    ls                  list files
+    cat                 print contents of one file
+    put                 file(s) to copy onto target
+    rm                  remove files on target
+    mount               Make target files accessible via FUSE
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -21,13 +29,16 @@ optional arguments:
   -c COMMAND, --command COMMAND
                         execute given code on target
   -i, --interactive     drop to interactive shell at the end
-  -v, --verbose         show diagnostic messages
+  -u USER, --user USER  response to login prompt
+  -w PASSWORD, --password PASSWORD
+                        response to password prompt
+  -v, --verbose         show diagnostic messages, repeat for more
   --develop             show tracebacks on errors (development of this tool)
 
 
 One ``--verbose`` prints progress information on stderr for some actions, e.g.
-``put``. A second and or third ``--verbose`` (e.g. ``-vv``) also prints the
-data exchanged between PC and target.
+``put``. A second ``--verbose`` (e.g. ``-vv``) also prints the data exchanged
+between PC and target.
 
 The order of operation is as follows:
 
@@ -44,6 +55,9 @@ are not given. And if those are not given, the default is ``hwgrep://USB`` and
 is only one micropython board connected. Otherwise the detect action should
 be used to find the comport and use ``--port`` option or environment
 variable.
+
+If ``--user`` and ``--password`` are given, it waits for a login and password
+prompt after connecting. This is useful when connecting to a WiPy via telnet.
 
 
 Actions

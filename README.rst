@@ -2,16 +2,29 @@
  REPL Transfer Tool
 ====================
 
+docs: https://mpy-repl-tool.readthedocs.io/en/latest
+
+
 Transfer files via Python REPL (Read Eval Print Loop). This tool was developed
 to transfer files from and to MicroPython boards.
 
 This is yet an other tool, there are now several similar tools but not all have
 the same features.
 
+Key features of this one:
+
+- ``detect`` serial ports and micropython boards.
+- ``run`` temporary scripts.
+- ``put`` files on the target filesystem.
+- ``mount`` target as filesytem (FUSE).
+- ``--interactive`` mode (terminal).
+- All of the above, and more, via the serial REPL connection to a micropython board.
+
+
 Usage
 =====
 
-Here is the output of ``python3 -m there --help``:
+Here is the output of ``python3 -m there --help``::
 
     usage: __main__.py [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-v]
                        {detect,run,ls,cat,put,rm,mount} ...
@@ -40,7 +53,7 @@ Here is the output of ``python3 -m there --help``:
       -v, --verbose         show diagnostic messages
 
 The ``-c`` option executes the given string after running all the actions.
-The ``-i`` option enters a miniterm sesstion at the end of all other actions.
+The ``-i`` option enters a miniterm session at the end of all other actions.
 
 The tool automatically selects a USB port for communication, it may take the
 wrong one if multiple USB serial devices are connected. In that case, use

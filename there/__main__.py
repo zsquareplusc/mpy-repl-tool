@@ -207,7 +207,7 @@ def main():
         default=os.environ.get('MPY_PASSWORD'),
         help='response to password prompt')
     global_options.add_argument('-v', '--verbose', action='count', default=0,
-        help='show diagnostic messages')
+        help='show diagnostic messages, repeat for more')
     global_options.add_argument('--develop', action='store_true',
         help='show tracebacks on errors (development of this tool)')
 

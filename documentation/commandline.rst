@@ -153,6 +153,8 @@ optional arguments:
   -r, --recursive  copy recursively
   --dry-run        do not actually create anything on target
 
+Directories named ``__pycache__`` are excluded.
+
 
 ``mount``
 ---------

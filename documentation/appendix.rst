@@ -10,8 +10,6 @@ Getting ``mount`` to run on Windows
 Install https://github.com/dokan-dev/dokany/releases/tag/v1.0.1
 (Tested with V1.0.1)
 
-XXX prepare patch
-
 Patch fuse.py:
 
 at the top, add an new ``elif``::

@@ -1,4 +1,7 @@
 __pycache__
 /doc/_build
+/build
+/dist
+/*.egg-info
 /xxx
 /documentation/_build

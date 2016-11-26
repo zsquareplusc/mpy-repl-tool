@@ -177,8 +177,10 @@ def command_mount(m, args):
     from . import fuse_drive
     import subprocess
     if args.explore:
-        # XXX this is for linux, use os.startfile() on windows
-        subprocess.call(["xdg-open", args.MOUNTPOINT])
+        if osn.name == 'nt':
+            os.startfile(args.MOUNTPOINT)
+        else:
+            subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
         fuse_drive.mount(m, args.MOUNTPOINT, args.verbose)
     except RuntimeError:

@@ -5,6 +5,7 @@ import sys
 import errno
 import stat
 import time
+import posixpath
 
 from fuse import FUSE, FuseOSError, Operations
 
@@ -78,10 +79,11 @@ class ReplFileTransfer(Operations):
         try:
             dirents = self._listdir_cache[path]
         except KeyError:
-            st = self.file_interface.ls(path)
             dirents = ['.', '..']
             if (self._stat(path).st_mode & stat.S_IFDIR) != 0:
-                dirents.extend(self.file_interface.ls(path))
+                for name, st in self.file_interface.ls(path):
+                    dirents.append(name)
+                    self._stat_cache[posixpath.join(path, name)] = st
             self._listdir_cache[path] = dirents
         for r in dirents:
             yield r

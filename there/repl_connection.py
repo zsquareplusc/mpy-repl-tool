@@ -210,6 +210,7 @@ class MicroPythonRepl(object):
             'print(_f.truncate())\n'
             '_f.close(); del _f; del _b'.format(str(path), int(length)))
 
-    def ls(self, path):
-        return self.evaluate('import os; print(os.listdir({path!r}))'.format(path=path))
+    def ls(self, path, fake_attrs=False):
+        files_and_stat = self.evaluate('import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
+        return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
 

@@ -69,10 +69,9 @@ def command_ls(m, args):
     """
     for path in args.PATH:
         if args.long:
-            files = m.ls(path)
-            files.sort()
-            for filename in files:
-                st = m.stat(posixpath.join(path, filename))
+            files_and_stat = m.ls(path)
+            files_and_stat.sort()
+            for filename, st in files_and_stat:
                 sys.stdout.write('{} {:4} {:4} {:>7} {} {}\n'.format(
                     mode_to_chars(st.st_mode),
                     st.st_uid if st.st_uid is not None else 'NONE',
@@ -81,7 +80,7 @@ def command_ls(m, args):
                     time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
                     escaped(filename)))
         else:
-            sys.stdout.write(' '.join(m.ls(path)))
+            sys.stdout.write(' '.join(n for n, st in m.ls(path)))
             sys.stdout.write('\n')
 
 

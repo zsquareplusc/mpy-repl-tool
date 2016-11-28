@@ -18,10 +18,17 @@ setup(
     url="https://github.com/zsquareplusc/mpy-repl-tool",
     packages=['there'],
     license="BSD",
-    #~ long_description="""\
-#~ """,
-    #~ classifiers=[
-    #~ ],
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'Environment :: Console',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: BSD License',
+        'Operating System :: MacOS',
+        'Operating System :: POSIX',
+        'Operating System :: Microsoft :: Windows',
+        'Programming Language :: Python :: 3 :: Only',
+        'Topic :: Software Development :: Embedded Systems',
+    ],
     platforms='any',
     install_requires=[
         'pyserial>=3',

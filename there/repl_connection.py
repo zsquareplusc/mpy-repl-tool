@@ -203,7 +203,7 @@ class MicroPythonRepl(object):
             self.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
         self.exec('_f.close(); del _f;')
 
-    def truncate(self, path):
+    def truncate(self, path, length):
         return self.evaluate(
             '_f = open({!r}, "rw")\n'
             '_f.seek({})\n'

@@ -176,7 +176,7 @@ def command_mount(m, args):
     from . import fuse_drive
     import subprocess
     if args.explore:
-        if osn.name == 'nt':
+        if os.name == 'nt':
             os.startfile(args.MOUNTPOINT)
         else:
             subprocess.call(["xdg-open", args.MOUNTPOINT])
@@ -185,8 +185,8 @@ def command_mount(m, args):
     except RuntimeError:
         sys.stderr.write('ERROR: Could not mount - note: directory must exist\n')
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def main():
     import argparse
 

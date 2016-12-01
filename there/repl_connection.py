@@ -5,7 +5,6 @@
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 import ast
-import posixpath
 import queue
 import os
 import re
@@ -28,10 +27,10 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
 
     TERMINATOR = b'\x04>'
 
-    def  __init__(self, *args, **kwargs):
-         super().__init__(*args, **kwargs)
-         self.response = queue.Queue()
-         self.verbose = False
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.response = queue.Queue()
+        self.verbose = False
 
     def connection_made(self, transport):
         super().connection_made(transport)
@@ -213,4 +212,3 @@ class MicroPythonRepl(object):
     def ls(self, path, fake_attrs=False):
         files_and_stat = self.evaluate('import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
-

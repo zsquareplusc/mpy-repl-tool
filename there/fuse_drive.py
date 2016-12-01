@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import errno
 import stat
 import time
@@ -62,7 +61,7 @@ class ReplFileTransfer(Operations):
         except KeyError:
             try:
                 st = self.file_interface.stat(path, fake_attrs=True)
-            except (IOError, FileNotFoundError) as e:
+            except (IOError, FileNotFoundError):
                 raise FuseOSError(errno.ENOENT)
             else:
                 self._stat_cache[path] = st
@@ -73,7 +72,7 @@ class ReplFileTransfer(Operations):
             path = self.files[fh].path
         st = self._stat(path)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
-                     'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+                    'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
 
     def readdir(self, path, fh):
         try:
@@ -98,7 +97,8 @@ class ReplFileTransfer(Operations):
 
     def statfs(self, path):
         stv = self.file_interface.statvfs(path)
-        return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
+        return dict((key, getattr(stv, key)) for key in (
+            'f_bavail', 'f_bfree',
             'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
             'f_frsize', 'f_namemax'))
 
@@ -112,7 +112,7 @@ class ReplFileTransfer(Operations):
         self._listdir_cache.forget(os.path.dirname(old))
         try:
             return self.file_interface.rename(old, new)
-        except FileExistsError as e:
+        except FileExistsError:
             self.file_interface.remove(new)
             return self.file_interface.rename(old, new)
 
@@ -167,4 +167,3 @@ class ReplFileTransfer(Operations):
 
 def mount(file_interface, mountpoint, verbosity):
     FUSE(ReplFileTransfer(file_interface, verbose=verbosity), mountpoint, nothreads=True, foreground=True, debug=verbosity > 0)
-

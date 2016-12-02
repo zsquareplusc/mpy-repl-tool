@@ -24,6 +24,8 @@ def make_connection(args, port=None):
                                         user=args.user,
                                         password=args.password)
     m.protocol.verbose = args.verbose > 1
+    if args.verbose:
+        sys.stderr.write('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 
@@ -60,7 +62,12 @@ def command_run(m, args):
     the targets file system.
     """
     # XXX set timeout / as argument?
-    sys.stdout.write(m.exec(open(args.FILE).read()))
+    if args.verbose:
+        sys.stderr.write('reading to {}\n'.format(args.FILE))
+    code = open(args.FILE).read()
+    if args.verbose:
+        sys.stderr.write('executing...\n')
+    sys.stdout.write(m.exec(code))
 
 
 def command_ls(m, args):
@@ -181,6 +188,8 @@ def command_mount(m, args):
         else:
             subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
+        if args.verbose:
+            sys.stderr.write('mounting to {}\n'.format(args.MOUNTPOINT))
         fuse_drive.mount(m, args.MOUNTPOINT, args.verbose)
     except RuntimeError:
         sys.stderr.write('ERROR: Could not mount - note: directory must exist\n')

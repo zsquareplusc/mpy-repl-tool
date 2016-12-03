@@ -68,22 +68,23 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         if self.response.qsize():
             self.response.get_nowait()
         self.transport.write(b'\x04')
-        try:
-            data = self.response.get(timeout=timeout)
-        except queue.Empty:
-            raise IOError('timeout')
-        else:
-            out, err = data.split(b'\x04')
-            if not out.startswith(b'OK'):
-                raise IOError('data was not accepted: {}: {}'.format(out, err))
-            if self.verbose:
-                sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O: '))
-            if err:
+        if timeout != 0:
+            try:
+                data = self.response.get(timeout=timeout)
+            except queue.Empty:
+                raise IOError('timeout')
+            else:
+                out, err = data.split(b'\x04')
+                if not out.startswith(b'OK'):
+                    raise IOError('data was not accepted: {}: {}'.format(out, err))
                 if self.verbose:
-                    sys.stderr.write(prefix(err.decode('utf-8'), 'E: '))
-                self._parse_error(err)
-                raise IOError('execution failed: {}: {}'.format(out, err))
-            return out[2:].decode('utf-8')
+                    sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O: '))
+                if err:
+                    if self.verbose:
+                        sys.stderr.write(prefix(err.decode('utf-8'), 'E: '))
+                    self._parse_error(err)
+                    raise IOError('execution failed: {}: {}'.format(out, err))
+                return out[2:].decode('utf-8')
 
 
 class MicroPythonRepl(object):
@@ -131,9 +132,9 @@ class MicroPythonRepl(object):
             self.serial.write(b'\x02')  # exit raw repl mode
         self._thread.close()
 
-    def exec(self, string):
+    def exec(self, *args, **kwargs):
         """execute the string on the target and return its output"""
-        return self.protocol.exec(string)
+        return self.protocol.exec(*args, **kwargs)
 
     def evaluate(self, string):
         """execute string on the target and return its output parsed as python literal"""

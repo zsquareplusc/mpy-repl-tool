@@ -62,12 +62,17 @@ def command_run(m, args):
     the targets file system.
     """
     # XXX set timeout / as argument?
+    if args.timeout == 0:
+        raise ValueError('use --interactive insteaf of --timeout=0')
     if args.verbose:
         sys.stderr.write('reading to {}\n'.format(args.FILE))
     code = open(args.FILE).read()
     if args.verbose:
         sys.stderr.write('executing...\n')
-    sys.stdout.write(m.exec(code))
+    if args.interactive:
+        m.exec(code, timeout=0)
+    else:
+        sys.stdout.write(m.exec(code, timeout=args.timeout))
 
 
 def command_ls(m, args):
@@ -234,6 +239,7 @@ def main():
 
     parser_run = subparsers.add_parser('run', help='execute file contents on target', parents=[global_options])
     parser_run.add_argument('FILE', nargs='?', help='load this file contents')
+    parser_run.add_argument('-t', '--timeout', type=float, default='10', help='wait x seconds for completion')
     parser_run.set_defaults(func=command_run, connect=True)
 
     parser_ls = subparsers.add_parser('ls', help='list files', parents=[global_options])

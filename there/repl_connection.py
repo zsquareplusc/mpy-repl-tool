@@ -53,13 +53,13 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
             if m:
                 err_num = int(m.group(2))
                 if err_num == 2:
-                    raise FileNotFoundError(2)
+                    raise FileNotFoundError(2, 'File not found')
                 elif err_num == 13:
-                    raise PermissionError(13)
+                    raise PermissionError(13, 'Permission Error')
                 elif err_num == 17:
-                    raise FileExistsError(17)
+                    raise FileExistsError(17, 'File Already Exists Error')
                 elif err_num:
-                    raise OSError(err_num)
+                    raise OSError(err_num, 'OSError')
 
     def exec(self, string, timeout=3):
         if self.verbose:

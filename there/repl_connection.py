@@ -5,8 +5,10 @@
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 import ast
+import fnmatch
 import queue
 import os
+import posixpath
 import re
 import stat
 import sys
@@ -213,3 +215,10 @@ class MicroPythonRepl(object):
     def ls(self, path, fake_attrs=False):
         files_and_stat = self.evaluate('import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
+    def glob(self, pattern):
+        path, namepat = posixpath.split(pattern)
+        # XXX does not handle patterns in path
+        if not namepat:
+            namepat = '*'
+        entries = self.ls(path)
+        return ((p, st) for p, st in entries if fnmatch.fnmatch(p, namepat))

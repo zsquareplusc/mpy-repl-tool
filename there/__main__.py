@@ -81,7 +81,7 @@ def command_ls(m, args):
     """
     for path in args.PATH:
         if args.long:
-            files_and_stat = m.glob(path)
+            files_and_stat = list(m.glob(path))
             files_and_stat.sort()
             for filename, st in files_and_stat:
                 sys.stdout.write('{} {:4} {:4} {:>7} {} {}\n'.format(
@@ -92,7 +92,7 @@ def command_ls(m, args):
                     time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
                     escaped(filename)))
         else:
-            sys.stdout.write(' '.join(n for n, st in m.glob(path)))
+            sys.stdout.write(' '.join(n for n, st in sorted(m.glob(path))))
             sys.stdout.write('\n')
 
 

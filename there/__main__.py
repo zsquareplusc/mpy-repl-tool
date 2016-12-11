@@ -111,7 +111,7 @@ def command_rm(m, args):
     # XXX --force option, --recursive option
     for pattern in args.PATH:
         matches = list(m.glob(pattern))
-        if not matches:  # XXX and not --force
+        if not matches and not args.force:
             raise FileNotFoundError(2, 'File not found: {}'.format(pattern))
         for path, st in matches:
             if st.st_mode & stat.S_IFDIR:
@@ -276,6 +276,7 @@ def main():
 
     parser_rm = subparsers.add_parser('rm', help='remove files on target', parents=[global_options])
     parser_rm.add_argument('PATH', nargs='+', help='filename on target')
+    parser_rm.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
     parser_rm.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 

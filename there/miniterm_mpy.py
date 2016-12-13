@@ -490,6 +490,8 @@ class Miniterm(object):
             while self.alive and self._reader_alive:
                 # read all that is there or wait for one byte
                 data = self.serial.read(self.serial.in_waiting or 1)
+                if data == b'\x1b':
+                    data += self.serial.read(self.serial.in_waiting)  # XXX hack
                 if data:
                     if self.raw:
                         self.console.write_bytes(data)

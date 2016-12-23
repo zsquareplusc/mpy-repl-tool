@@ -138,15 +138,15 @@ optional arguments:
   -h, --help  show this help message and exit
 
 
-``put``
+``push``
 -------
 Copies files and directories from the PC to the micropython board.
 
-usage: there put [-h] [-r] [--dry-run] SRC [SRC ...] DST
+usage: there push [-h] [-r] [--dry-run] LOCAL [LOCAL ...] REMOTE
 
 positional arguments:
-  SRC              one or more source files/directories
-  DST              destination directory
+  LOCAL            one or more source files/directories
+  REMOTE           destination directory
 
 optional arguments:
   -h, --help       show this help message and exit

@@ -140,11 +140,11 @@ def ensure_dir(m, path):
             raise FileExistsError('there is a file in the way: {}'.format(path))
 
 
-def command_put(m, args):
+def command_push(m, args):
     """\
     Copy a file from here to there.
     """
-    dst = args.DST[0]
+    dst = args.REMOTE[0]
     try:
         dst_dir = (m.stat(dst).st_mode & stat.S_IFDIR) != 0
         dst_exists = True
@@ -152,7 +152,7 @@ def command_put(m, args):
         dst_dir = False
         dst_exists = False
     # expand the patterns for our windows users ;-)
-    paths = sum((glob.glob(src) for src in args.SRC), [])
+    paths = sum((glob.glob(src) for src in args.LOCAL), [])
     if len(paths) > 1:
         if not dst_dir:
             raise ValueError('destination must be a directory')
@@ -267,12 +267,12 @@ def main():
     parser_cat.set_defaults(func=command_cat, connect=True)
 
 
-    parser_put = subparsers.add_parser('put', help='file(s) to copy onto target', parents=[global_options])
-    parser_put.add_argument('SRC', nargs='+', help='one or more source files/directories')
-    parser_put.add_argument('DST', nargs=1, help='destination directory')
-    parser_put.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
-    parser_put.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
-    parser_put.set_defaults(func=command_put, connect=True)
+    parser_push = subparsers.add_parser('push', help='file(s) to copy onto target', parents=[global_options])
+    parser_push.add_argument('LOCAL', nargs='+', help='one or more source files/directories')
+    parser_push.add_argument('REMOTE', nargs=1, help='destination directory')
+    parser_push.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
+    parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
+    parser_push.set_defaults(func=command_push, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files on target', parents=[global_options])
     parser_rm.add_argument('PATH', nargs='+', help='filename on target')

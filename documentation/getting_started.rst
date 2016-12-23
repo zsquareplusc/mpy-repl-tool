@@ -49,7 +49,7 @@ Usage examples
     python3 -m there cat /somepath/somefile
 
     # copy multiple files from computer to target
-    python3 -m there put *.py /flash
+    python3 -m there push *.py /flash
 
 Adding a ``-i`` starts a serial terminal::
 
@@ -60,7 +60,7 @@ Adding a ``-i`` starts a serial terminal::
 
 An few statements can be executed using ``-c`` and it can be combined with other options::
 
-    python3 -m there -i -c "main()" put main.py /
+    python3 -m there -i -c "main()" push main.py /
 
 When FUSE is available on the system and ``fusepy`` was installed, it is also
 possible to browse the files in a file navigator/explorer::

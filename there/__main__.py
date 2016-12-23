@@ -100,7 +100,7 @@ def command_cat(m, args):
     """\
     Print the contents of a file from the target to stdout.
     """
-    sys.stdout.buffer.write(m.read_file(args.PATH))
+    sys.stdout.buffer.write(m.read_from_file(args.PATH))
     sys.stdout.buffer.write(b'\n')
 
 

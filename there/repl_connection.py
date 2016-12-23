@@ -174,9 +174,13 @@ class MicroPythonRepl(object):
     def rmdir(self, path):
         return self.evaluate('import os; print(os.rmdir({!r}))'.format(str(path)))
 
-    def read_file(self, path):
+    def read_file(self, path, local_filename):
+        with open(local_filename, 'wb') as f:
+            f.write(self.read_from_file(path))
+
+    def read_from_file(self, path):
         # use the fact that Python joins adjacent consecutive strings
-        # for the snippet here as well as for the data returned from target
+        # for the snippet here
         return b''.join(self.evaluate(
             '_f = open({!r}, "rb")\n'
             'print("[")\n'

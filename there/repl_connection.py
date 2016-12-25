@@ -219,6 +219,19 @@ class MicroPythonRepl(object):
     def ls(self, path, fake_attrs=False):
         files_and_stat = self.evaluate('import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
+
+    def walk(self, dirpath):
+        dirnames = []
+        filenames = []
+        for name, st in self.ls(dirpath):
+            if (st.st_mode & stat.S_IFDIR) != 0:
+                dirnames.append(name)
+            else:
+                filenames.append(name)
+        yield dirpath, dirnames, filenames
+        for dirname in dirnames:
+            yield from self.walk(posixpath.join(dirpath, dirname))
+
     def glob(self, pattern):
         path, namepat = posixpath.split(pattern)
         # XXX does not handle patterns in path
@@ -226,3 +239,4 @@ class MicroPythonRepl(object):
             namepat = '*'
         entries = self.ls(path)
         return ((p, st) for p, st in entries if fnmatch.fnmatch(p, namepat))
+

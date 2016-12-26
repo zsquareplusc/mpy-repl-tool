@@ -140,6 +140,54 @@ def ensure_dir(m, path):
             raise FileExistsError('there is a file in the way: {}'.format(path))
 
 
+def command_pull(m, args):
+    """\
+    Copy a file from here to there.
+    """
+    dst = args.LOCAL[0]
+    dst_dir = os.path.isdir(dst)
+    dst_exists = os.path.exists(dst)
+    # expand the patterns for our windows users ;-)
+    paths = sum((list(m.glob(src)) for src in args.REMOTE), [])
+    if len(paths) > 1:
+        if dst_exists:
+            if not dst_dir:
+                raise ValueError('destination must be a directory')
+        else:
+            if not args.dry_run:
+                os.makedirs(dst, exist_ok=True)
+            dst_dir = True
+    for path, st in paths:
+        if (st.st_mode & stat.S_IFDIR) != 0:
+            if args.recursive:
+                root = os.path.dirname(path)
+                for dirpath, dirnames, filenames in m.walk(path):
+                    relpath = posixpath.relpath(dirpath, root)
+                    if not args.dry_run:
+                        os.makedirs(os.path.join(dst, relpath), exist_ok=True)
+                    for filename in filenames:
+                        if args.verbose:
+                            sys.stderr.write('{} -> {}\n'.format(
+                                posixpath.join(dirpath, filename),
+                                os.path.join(dst, relpath, filename)))
+                        if not args.dry_run:
+                            m.read_file(posixpath.join(dirpath, filename),
+                                         os.path.join(dst, relpath, filename))
+            else:
+                sys.stderr.write('skiping directory {}\n'.format(path))
+        else:
+            if dst_dir:
+                if args.verbose:
+                    sys.stderr.write('{} -> {}\n'.format(path, os.path.join(dst, posixpath.basename(path))))
+                if not args.dry_run:
+                    m.read_file(path, os.path.join(dst, posixpath.basename(path)))
+            else:
+                if args.verbose:
+                    sys.stderr.write('{} -> {}\n'.format(path, dst))
+                if not args.dry_run:
+                    m.read_file(path, dst)
+
+
 def command_push(m, args):
     """\
     Copy a file from here to there.
@@ -266,6 +314,12 @@ def main():
     parser_cat.add_argument('PATH', help='filename on target')
     parser_cat.set_defaults(func=command_cat, connect=True)
 
+    parser_pull = subparsers.add_parser('pull', help='file(s) to copy from target', parents=[global_options])
+    parser_pull.add_argument('REMOTE', nargs='+', help='one or more source files/directories')
+    parser_pull.add_argument('LOCAL', nargs=1, help='destination directory')
+    parser_pull.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
+    parser_pull.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
+    parser_pull.set_defaults(func=command_pull, connect=True)
 
     parser_push = subparsers.add_parser('push', help='file(s) to copy onto target', parents=[global_options])
     parser_push.add_argument('LOCAL', nargs='+', help='one or more source files/directories')

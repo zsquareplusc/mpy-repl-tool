@@ -138,6 +138,22 @@ optional arguments:
   -h, --help  show this help message and exit
 
 
+``pull``
+-------
+Copies files and directories from the micropython board to the PC.
+
+usage: there pull [-h] [-r] [--dry-run] REMOTE [REMOTE ...] LOCAL
+
+positional arguments:
+  REMOTE           one or more source files/directories
+  LOCAL            destination directory
+
+optional arguments:
+  -h, --help       show this help message and exit
+  -r, --recursive  copy recursively
+  --dry-run        do not actually copy files, just print names
+
+
 ``push``
 -------
 Copies files and directories from the PC to the micropython board.

@@ -15,7 +15,8 @@ Key features of this one:
 
 - ``detect`` serial ports and micropython boards.
 - ``run`` temporary scripts.
-- ``put`` files on the target filesystem.
+- ``pull`` get files from the target filesystem.
+- ``push`` files on the target filesystem.
 - ``mount`` target as filesytem (FUSE).
 - ``--interactive`` mode (terminal).
 - All of the above, and more, via the serial REPL connection to a micropython board.
@@ -27,7 +28,7 @@ Usage
 Here is the output of ``python3 -m there --help``::
 
     usage: __main__.py [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-v]
-                       {detect,run,ls,cat,put,rm,mount} ...
+                       detect,run,ls,cat,pull,push,rm,mount} ...
 
     Do stuff via the MicroPython REPL
 
@@ -38,7 +39,8 @@ Here is the output of ``python3 -m there --help``::
         run                 execute file contents on target
         ls                  list files
         cat                 print content of one file
-        put                 file(s) to copy onto target
+        pull                file(s) to copy from target
+        push                file(s) to copy onto target
         rm                  remove files on target
         mount               Make target files accessible via FUSE
 
@@ -50,7 +52,11 @@ Here is the output of ``python3 -m there --help``::
       -c COMMAND, --command COMMAND
                             execute given code on target
       -i, --interactive     drop to interactive shell at the end
-      -v, --verbose         show diagnostic messages
+      -u USER, --user USER  response to login prompt
+      -w PASSWORD, --password PASSWORD
+                            response to password prompt
+      -v, --verbose         show diagnostic messages, repeat for more
+      --develop             show tracebacks on errors (development of this tool)
 
 The ``-c`` option executes the given string after running all the actions.
 The ``-i`` option enters a miniterm session at the end of all other actions.

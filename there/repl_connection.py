@@ -220,7 +220,7 @@ class MicroPythonRepl(object):
         files_and_stat = self.evaluate('import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
 
-    def walk(self, dirpath):
+    def walk(self, dirpath, topdown=True):
         dirnames = []
         filenames = []
         for name, st in self.ls(dirpath):
@@ -228,9 +228,14 @@ class MicroPythonRepl(object):
                 dirnames.append(name)
             else:
                 filenames.append(name)
-        yield dirpath, dirnames, filenames
-        for dirname in dirnames:
-            yield from self.walk(posixpath.join(dirpath, dirname))
+        if topdown:
+            yield dirpath, dirnames, filenames
+            for dirname in dirnames:
+                yield from self.walk(posixpath.join(dirpath, dirname))
+        else:
+            for dirname in dirnames:
+                yield from self.walk(posixpath.join(dirpath, dirname))
+            yield dirpath, dirnames, filenames
 
     def glob(self, pattern):
         path, namepat = posixpath.split(pattern)

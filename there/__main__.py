@@ -108,18 +108,33 @@ def command_rm(m, args):
     """\
     Remove files on target.
     """
-    # XXX --force option, --recursive option
     for pattern in args.PATH:
         matches = list(m.glob(pattern))
         if not matches and not args.force:
             raise FileNotFoundError(2, 'File not found: {}'.format(pattern))
         for path, st in matches:
             if st.st_mode & stat.S_IFDIR:
-                # XXX dive down if --recursive
-                if args.verbose:
-                    sys.stderr.write('remove directory {}/\n'.format(path))
-                if not args.dry_run:
-                    m.rmdir(path)
+                if args.recursive:
+                    for dirpath, dirnames, filenames in m.walk(path, topdown=False):
+                        for name in filenames:
+                            if args.verbose:
+                                sys.stderr.write('rm {}/{}\n'.format(dirpath, name))
+                            if not args.dry_run:
+                                m.remove(posixpath.join(dirpath, name))
+                        for name in dirnames:
+                            if args.verbose:
+                                sys.stderr.write('rmdir {}/{}\n'.format(dirpath, name))
+                            if not args.dry_run:
+                                m.rmdir(posixpath.join(dirpath, name))
+                    if args.verbose:
+                        sys.stderr.write('rmdir {}\n'.format(dirpath))
+                    if not args.dry_run:
+                        m.rmdir(dirpath)
+                else:
+                    if args.verbose:
+                        sys.stderr.write('remove directory {}/\n'.format(path))
+                    if not args.dry_run:
+                        m.rmdir(path)
             else:
                 if args.verbose:
                     sys.stderr.write('remove {}\n'.format(path))
@@ -331,6 +346,7 @@ def main():
     parser_rm = subparsers.add_parser('rm', help='remove files on target', parents=[global_options])
     parser_rm.add_argument('PATH', nargs='+', help='filename on target')
     parser_rm.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
+    parser_rm.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
     parser_rm.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 

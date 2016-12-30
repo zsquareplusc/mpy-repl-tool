@@ -17,21 +17,39 @@ from . import repl_connection
 from . import miniterm_mpy
 
 
-def make_connection(args, port=None):
+class UserMessages(object):
+    def __init__(self, verbosity):
+        self.verbosity = verbosity
+
+    def output(self, message):
+        sys.stdout.write(message)
+
+    def error(self, message):
+        sys.stderr.write(message)
+
+    def notice(self, message):
+        sys.stderr.write(message)
+
+    def info(self, message):
+        if self.verbosity > 0:
+            sys.stderr.write(message)
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def make_connection(user, args, port=None):
     """make a conenction, port overrides args.port"""
     m = repl_connection.MicroPythonRepl(port or args.port,
                                         args.baudrate,
                                         user=args.user,
                                         password=args.password)
     m.protocol.verbose = args.verbose > 1
-    if args.verbose:
-        sys.stderr.write('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
+    user.info('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def command_detect(m, args):
+def command_detect(user, m, args):
     """\
     Help finding MicroPython boards.
 
@@ -44,19 +62,19 @@ def command_detect(m, args):
     for info in serial.tools.list_ports.comports():
         if args.test:
             try:
-                m = make_connection(args, port=info.device)
+                m = make_connection(user, args, port=info.device)
                 try:
                     mpy_info = m.exec('import sys; print(sys.implementation)').strip()
                 finally:
                     m.close()
             except Exception as e:
                 mpy_info = str(e)
-            sys.stdout.write('{!s}: {}\n'.format(info, mpy_info))
+            user.output('{!s}: {}\n'.format(info, mpy_info))
         else:
-            sys.stdout.write('{!s}\n'.format(info))
+            user.output('{!s}\n'.format(info))
 
 
-def command_run(m, args):
+def command_run(user, m, args):
     """\
     Execute the contents of a (small) file on the target, without saving it to
     the targets file system.
@@ -64,18 +82,16 @@ def command_run(m, args):
     # XXX set timeout / as argument?
     if args.timeout == 0:
         raise ValueError('use --interactive insteaf of --timeout=0')
-    if args.verbose:
-        sys.stderr.write('reading to {}\n'.format(args.FILE))
+    user.info('reading to {}\n'.format(args.FILE))
     code = open(args.FILE).read()
-    if args.verbose:
-        sys.stderr.write('executing...\n')
+    user.info('executing...\n')
     if args.interactive:
         m.exec(code, timeout=0)
     else:
-        sys.stdout.write(m.exec(code, timeout=args.timeout))
+        user.output(m.exec(code, timeout=args.timeout))
 
 
-def command_ls(m, args):
+def command_ls(user, m, args):
     """\
     List files on the targets file system.
     """
@@ -84,7 +100,7 @@ def command_ls(m, args):
             files_and_stat = list(m.glob(path))
             files_and_stat.sort()
             for filename, st in files_and_stat:
-                sys.stdout.write('{} {:4} {:4} {:>7} {} {}\n'.format(
+                user.output('{} {:4} {:4} {:>7} {} {}\n'.format(
                     mode_to_chars(st.st_mode),
                     st.st_uid if st.st_uid is not None else 'NONE',
                     st.st_gid if st.st_gid is not None else 'NONE',
@@ -92,19 +108,19 @@ def command_ls(m, args):
                     time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
                     escaped(filename)))
         else:
-            sys.stdout.write(' '.join(n for n, st in sorted(m.glob(path))))
-            sys.stdout.write('\n')
+            user.output(' '.join(n for n, st in sorted(m.glob(path))))
+            user.output('\n')
 
 
-def command_cat(m, args):
+def command_cat(user, m, args):
     """\
     Print the contents of a file from the target to stdout.
     """
-    sys.stdout.buffer.write(m.read_from_file(args.PATH))
-    sys.stdout.buffer.write(b'\n')
+    user.output(m.read_from_file(args.PATH))
+    user.output(b'\n')
 
 
-def command_rm(m, args):
+def command_rm(user, m, args):
     """\
     Remove files on target.
     """
@@ -117,27 +133,22 @@ def command_rm(m, args):
                 if args.recursive:
                     for dirpath, dirnames, filenames in m.walk(path, topdown=False):
                         for name in filenames:
-                            if args.verbose:
-                                sys.stderr.write('rm {}/{}\n'.format(dirpath, name))
+                            user.info('rm {}/{}\n'.format(dirpath, name))
                             if not args.dry_run:
                                 m.remove(posixpath.join(dirpath, name))
                         for name in dirnames:
-                            if args.verbose:
-                                sys.stderr.write('rmdir {}/{}\n'.format(dirpath, name))
+                            user.info('rmdir {}/{}\n'.format(dirpath, name))
                             if not args.dry_run:
                                 m.rmdir(posixpath.join(dirpath, name))
-                    if args.verbose:
-                        sys.stderr.write('rmdir {}\n'.format(dirpath))
+                    user.info('rmdir {}\n'.format(dirpath))
                     if not args.dry_run:
                         m.rmdir(dirpath)
                 else:
-                    if args.verbose:
-                        sys.stderr.write('remove directory {}/\n'.format(path))
+                    user.info('remove directory {}/\n'.format(path))
                     if not args.dry_run:
                         m.rmdir(path)
             else:
-                if args.verbose:
-                    sys.stderr.write('remove {}\n'.format(path))
+                user.info('remove {}\n'.format(path))
                 if not args.dry_run:
                     m.remove(path)
 
@@ -155,7 +166,7 @@ def ensure_dir(m, path):
             raise FileExistsError('there is a file in the way: {}'.format(path))
 
 
-def command_pull(m, args):
+def command_pull(user, m, args):
     """\
     Copy a file from here to there.
     """
@@ -181,29 +192,26 @@ def command_pull(m, args):
                     if not args.dry_run:
                         os.makedirs(os.path.join(dst, relpath), exist_ok=True)
                     for filename in filenames:
-                        if args.verbose:
-                            sys.stderr.write('{} -> {}\n'.format(
+                        user.info('{} -> {}\n'.format(
                                 posixpath.join(dirpath, filename),
                                 os.path.join(dst, relpath, filename)))
                         if not args.dry_run:
                             m.read_file(posixpath.join(dirpath, filename),
                                          os.path.join(dst, relpath, filename))
             else:
-                sys.stderr.write('skiping directory {}\n'.format(path))
+                user.notice('skiping directory {}\n'.format(path))
         else:
             if dst_dir:
-                if args.verbose:
-                    sys.stderr.write('{} -> {}\n'.format(path, os.path.join(dst, posixpath.basename(path))))
+                user.info('{} -> {}\n'.format(path, os.path.join(dst, posixpath.basename(path))))
                 if not args.dry_run:
                     m.read_file(path, os.path.join(dst, posixpath.basename(path)))
             else:
-                if args.verbose:
-                    sys.stderr.write('{} -> {}\n'.format(path, dst))
+                user.info('{} -> {}\n'.format(path, dst))
                 if not args.dry_run:
                     m.read_file(path, dst)
 
 
-def command_push(m, args):
+def command_push(user, m, args):
     """\
     Copy a file from here to there.
     """
@@ -237,29 +245,26 @@ def command_push(m, args):
                         except ValueError:
                             pass
                     for filename in filenames:
-                        if args.verbose:
-                            sys.stderr.write('{} -> {}\n'.format(
+                        user.info('{} -> {}\n'.format(
                                 os.path.join(dirpath, filename),
                                 posixpath.join(dst, relpath, filename)))
                         if not args.dry_run:
                             m.write_file(os.path.join(dirpath, filename),
                                          posixpath.join(dst, relpath, filename))
             else:
-                sys.stderr.write('skiping directory {}\n'.format(path))
+                user.notice('skiping directory {}\n'.format(path))
         else:
             if dst_dir:
-                if args.verbose:
-                    sys.stderr.write('{} -> {}\n'.format(path, posixpath.join(dst, os.path.basename(path))))
+                user.info('{} -> {}\n'.format(path, posixpath.join(dst, os.path.basename(path))))
                 if not args.dry_run:
                     m.write_file(path, posixpath.join(dst, os.path.basename(path)))
             else:
-                if args.verbose:
-                    sys.stderr.write('{} -> {}\n'.format(path, dst))
+                user.info('{} -> {}\n'.format(path, dst))
                 if not args.dry_run:
                     m.write_file(path, dst)
 
 
-def command_mount(m, args):
+def command_mount(user, m, args):
     """\
     Mount the target as file system via FUSE.
     """
@@ -271,11 +276,10 @@ def command_mount(m, args):
         else:
             subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
-        if args.verbose:
-            sys.stderr.write('mounting to {}\n'.format(args.MOUNTPOINT))
+        user.info('mounting to {}\n'.format(args.MOUNTPOINT))
         fuse_drive.mount(m, args.MOUNTPOINT, args.verbose)
     except RuntimeError:
-        sys.stderr.write('ERROR: Could not mount - note: directory must exist\n')
+        user.error('ERROR: Could not mount - note: directory must exist\n')
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -357,24 +361,26 @@ def main():
 
     args = parser.parse_args()
 
+    user = UserMessages(args.verbose)
+
     if args.command or args.interactive:
         args.connect = True
 
     if args.connect:
-        m = make_connection(args)
+        m = make_connection(user, args)
     else:
         m = None
 
     exitcode = 0
     try:
         if args.func:
-            args.func(m, args)
+            args.func(user, m, args)
         if args.command:
-            sys.stdout.write(m.exec(args.command))
+            user.output(m.exec(args.command))
     except Exception as e:
         if args.develop:
             raise
-        sys.stderr.write('ERROR: action or command failed: {}\n'.format(e))
+        user.error('ERROR: action or command failed: {}\n'.format(e))
         exitcode = 1
 
     if args.interactive:

@@ -18,19 +18,27 @@ from . import miniterm_mpy
 
 
 class UserMessages(object):
+    """
+    Provide a class with methods to interact with user. Makes it simpler to
+    track verbosity flag.
+    """
     def __init__(self, verbosity):
         self.verbosity = verbosity
 
     def output(self, message):
+        """output, typically stdout"""
         sys.stdout.write(message)
 
     def error(self, message):
+        """error messages to stderr"""
         sys.stderr.write(message)
 
     def notice(self, message):
+        """informative messages to stderr"""
         sys.stderr.write(message)
 
     def info(self, message):
+        """informative messages to stderr, only if verbose flag is set"""
         if self.verbosity > 0:
             sys.stderr.write(message)
 
@@ -193,11 +201,11 @@ def command_pull(user, m, args):
                         os.makedirs(os.path.join(dst, relpath), exist_ok=True)
                     for filename in filenames:
                         user.info('{} -> {}\n'.format(
-                                posixpath.join(dirpath, filename),
-                                os.path.join(dst, relpath, filename)))
+                                  posixpath.join(dirpath, filename),
+                                  os.path.join(dst, relpath, filename)))
                         if not args.dry_run:
                             m.read_file(posixpath.join(dirpath, filename),
-                                         os.path.join(dst, relpath, filename))
+                                        os.path.join(dst, relpath, filename))
             else:
                 user.notice('skiping directory {}\n'.format(path))
         else:
@@ -246,8 +254,8 @@ def command_push(user, m, args):
                             pass
                     for filename in filenames:
                         user.info('{} -> {}\n'.format(
-                                os.path.join(dirpath, filename),
-                                posixpath.join(dst, relpath, filename)))
+                                  os.path.join(dirpath, filename),
+                                  posixpath.join(dst, relpath, filename)))
                         if not args.dry_run:
                             m.write_file(os.path.join(dirpath, filename),
                                          posixpath.join(dst, relpath, filename))

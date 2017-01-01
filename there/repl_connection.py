@@ -90,7 +90,7 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
 
 
 class MicroPythonRepl(object):
-    def __init__(self, port='hwgrep://VID:PID=1A86:7523', baudrate=115200, user=None, password=None):
+    def __init__(self, port='hwgrep://USB', baudrate=115200, user=None, password=None):
         self.serial = None
         self.serial = serial.serial_for_url(port, baudrate=baudrate, timeout=1)
         if user is not None:
@@ -121,6 +121,7 @@ class MicroPythonRepl(object):
         self.transport, self.protocol = self._thread.connect()
 
     def stop(self, interrupt=True):
+        """Stop reader thread keep serial port open"""
         if interrupt:
             self.serial.write(b'\x03\x02')  # exit raw repl mode, and interrupt
         else:
@@ -128,6 +129,7 @@ class MicroPythonRepl(object):
         self._thread.stop()
 
     def close(self, interrupt=True):
+        """Stop reader thread and close serial port"""
         if interrupt:
             self.serial.write(b'\x03\x02')  # exit raw repl mode, and interrupt
         else:
@@ -135,21 +137,27 @@ class MicroPythonRepl(object):
         self._thread.close()
 
     def exec(self, *args, **kwargs):
-        """execute the string on the target and return its output"""
+        """Execute the string on the target and return its output."""
         return self.protocol.exec(*args, **kwargs)
 
     def evaluate(self, string):
-        """execute string on the target and return its output parsed as python literal"""
+        """
+        Execute a string on the target and return its output parsed as python
+        literal. Works for simple constructs such as numbers, lists,
+        dictionaries.
+        """
         return ast.literal_eval(self.exec(string))
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     def statvfs(self, path):
+        """return stat information about remote filesystem"""
         st = self.evaluate('import os; print(os.statvfs({!r}))'.format(str(path)))
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
     def stat(self, path, fake_attrs=False):
+        """return stat information about path on remote"""
         st = self.evaluate('import os; print(os.stat({!r}))'.format(str(path)))
         if fake_attrs:
             # XXX fake some attributes: rw, uid/gid
@@ -175,10 +183,12 @@ class MicroPythonRepl(object):
         return self.evaluate('import os; print(os.rmdir({!r}))'.format(str(path)))
 
     def read_file(self, path, local_filename):
+        """copy a file from remote to local filesystem"""
         with open(local_filename, 'wb') as f:
             f.write(self.read_from_file(path))
 
     def read_from_file(self, path):
+        """Return the contents of a remote file as byte string"""
         # use the fact that Python joins adjacent consecutive strings
         # for the snippet here
         return b''.join(self.evaluate(
@@ -192,6 +202,7 @@ class MicroPythonRepl(object):
             '_f.close(); del _f; del _b'.format(str(path))))
 
     def write_file(self, local_filename, path=None):
+        """Copy a file from local to remote filesystem"""
         if path is None:
             path = local_filename
         with open(local_filename, 'rb') as f:
@@ -217,10 +228,19 @@ class MicroPythonRepl(object):
             '_f.close(); del _f; del _b'.format(str(path), int(length)))
 
     def ls(self, path, fake_attrs=False):
-        files_and_stat = self.evaluate('import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
+        """
+        Return a list of tuples of filenames and stat info of given remote
+        path.
+        """
+        files_and_stat = self.evaluate(
+                'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
 
     def walk(self, dirpath, topdown=True):
+        """
+        Recursively scan remote path and yield tuples of (dirpath, dirnames,
+        filenames).
+        """
         dirnames = []
         filenames = []
         for name, st in self.ls(dirpath):
@@ -238,6 +258,7 @@ class MicroPythonRepl(object):
             yield dirpath, dirnames, filenames
 
     def glob(self, pattern):
+        """Pattern match files on remote"""
         path, namepat = posixpath.split(pattern)
         # XXX does not handle patterns in path
         if not namepat:

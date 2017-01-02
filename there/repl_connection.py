@@ -245,15 +245,15 @@ class MicroPythonRepl(object):
         filenames = []
         for name, st in self.ls(dirpath):
             if (st.st_mode & stat.S_IFDIR) != 0:
-                dirnames.append(name)
+                dirnames.append((name, st))
             else:
-                filenames.append(name)
+                filenames.append((name, st))
         if topdown:
             yield dirpath, dirnames, filenames
-            for dirname in dirnames:
+            for dirname, st in dirnames:
                 yield from self.walk(posixpath.join(dirpath, dirname))
         else:
-            for dirname in dirnames:
+            for dirname, st in dirnames:
                 yield from self.walk(posixpath.join(dirpath, dirname))
             yield dirpath, dirnames, filenames
 

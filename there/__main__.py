@@ -139,15 +139,15 @@ def command_rm(user, m, args):
         for path, st in matches:
             if st.st_mode & stat.S_IFDIR:
                 if args.recursive:
-                    for dirpath, dirnames, filenames in m.walk(path, topdown=False):
-                        for name in filenames:
-                            user.info('rm {}/{}\n'.format(dirpath, name))
-                            if not args.dry_run:
-                                m.remove(posixpath.join(dirpath, name))
-                        for name in dirnames:
+                    for dirpath, dir_stat, file_stat in m.walk(path, topdown=False):
+                        for name, st in dir_stat:
                             user.info('rmdir {}/{}\n'.format(dirpath, name))
                             if not args.dry_run:
                                 m.rmdir(posixpath.join(dirpath, name))
+                        for name, st in file_stat:
+                            user.info('rm {}/{}\n'.format(dirpath, name))
+                            if not args.dry_run:
+                                m.remove(posixpath.join(dirpath, name))
                     user.info('rmdir {}\n'.format(dirpath))
                     if not args.dry_run:
                         m.rmdir(dirpath)
@@ -195,11 +195,11 @@ def command_pull(user, m, args):
         if (st.st_mode & stat.S_IFDIR) != 0:
             if args.recursive:
                 root = os.path.dirname(path)
-                for dirpath, dirnames, filenames in m.walk(path):
+                for dirpath, dir_stat, file_stat in m.walk(path):
                     relpath = posixpath.relpath(dirpath, root)
                     if not args.dry_run:
                         os.makedirs(os.path.join(dst, relpath), exist_ok=True)
-                    for filename in filenames:
+                    for filename, st in file_stat:
                         user.info('{} -> {}\n'.format(
                                   posixpath.join(dirpath, filename),
                                   os.path.join(dst, relpath, filename)))

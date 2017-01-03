@@ -99,25 +99,35 @@ def command_run(user, m, args):
         user.output(m.exec(code, timeout=args.timeout))
 
 
+def print_long_list(user, files_and_stat):
+    for filename, st in files_and_stat:
+        user.output('{} {:4} {:4} {:>7} {} {}\n'.format(
+            mode_to_chars(st.st_mode),
+            st.st_uid if st.st_uid is not None else 'NONE',
+            st.st_gid if st.st_gid is not None else 'NONE',
+            nice_bytes(st.st_size),
+            time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
+            escaped(filename)))
+
+def print_short_list(user, files_and_stat):
+    user.output(' '.join(n for n, st in files_and_stat))
+    user.output('\n')
+
 def command_ls(user, m, args):
     """\
     List files on the targets file system.
     """
+    if args.long:
+        print_list = print_long_list
+    else:
+        print_list = print_short_list
     for path in args.PATH:
-        if args.long:
-            files_and_stat = list(m.glob(path))
-            files_and_stat.sort()
-            for filename, st in files_and_stat:
-                user.output('{} {:4} {:4} {:>7} {} {}\n'.format(
-                    mode_to_chars(st.st_mode),
-                    st.st_uid if st.st_uid is not None else 'NONE',
-                    st.st_gid if st.st_gid is not None else 'NONE',
-                    nice_bytes(st.st_size),
-                    time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
-                    escaped(filename)))
+        if args.recursive:
+            for dirpath, dir_stat, file_stat in m.walk(path):
+                user.output('\n{}:\n'.format(posixpath.join(path, dirpath)))
+                print_list(user, file_stat + dir_stat)
         else:
-            user.output(' '.join(n for n, st in sorted(m.glob(path))))
-            user.output('\n')
+            print_list(user, sorted(m.glob(path)))
 
 
 def command_cat(user, m, args):
@@ -335,6 +345,7 @@ def main():
     parser_ls = subparsers.add_parser('ls', help='list files', parents=[global_options])
     parser_ls.add_argument('PATH', nargs='*', default='/', help='paths to list')
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
+    parser_ls.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_ls.set_defaults(func=command_ls, connect=True)
 
     parser_cat = subparsers.add_parser('cat', help='print contents of one file', parents=[global_options])

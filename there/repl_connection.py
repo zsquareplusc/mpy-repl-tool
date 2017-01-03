@@ -4,6 +4,18 @@
 # (C) 2016 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
+"""
+Remote code execution and file transfer support module for connections via a
+REPL (Read Eval Print Loop) such as it is usual for MicroPython.
+
+There are also helper functions like glob(), walk() and listdir(). These,
+unlike their counterparts on the host, return tuples of names and stat
+information, not just names. This done to make the data transfer more efficient
+as most higher level operations will need stat info.
+
+Note: The protocol uses MicroPython specific conrol codes to switch to a raw
+REPL mode, so the current implementation is not generic for any Python REPL!
+"""
 import ast
 import fnmatch
 import queue
@@ -238,8 +250,8 @@ class MicroPythonRepl(object):
 
     def walk(self, dirpath, topdown=True):
         """
-        Recursively scan remote path and yield tuples of (dirpath, dirnames,
-        filenames).
+        Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
+        Where dir_st and file_st are lists of tuples of name and stat info.
         """
         dirnames = []
         filenames = []
@@ -258,7 +270,7 @@ class MicroPythonRepl(object):
             yield dirpath, dirnames, filenames
 
     def glob(self, pattern):
-        """Pattern match files on remote"""
+        """Pattern match files on remote. Returns a list of tuples of name and stat info"""
         path, namepat = posixpath.split(pattern)
         # XXX does not handle patterns in path
         if not namepat:

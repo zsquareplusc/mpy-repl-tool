@@ -162,11 +162,11 @@ def command_rm(user, m, args):
                     if not args.dry_run:
                         m.rmdir(dirpath)
                 else:
-                    user.info('remove directory {}/\n'.format(path))
+                    user.info('rmdir {}/\n'.format(path))
                     if not args.dry_run:
                         m.rmdir(path)
             else:
-                user.info('remove {}\n'.format(path))
+                user.info('rm {}\n'.format(path))
                 if not args.dry_run:
                     m.remove(path)
 

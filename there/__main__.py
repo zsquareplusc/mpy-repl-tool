@@ -333,7 +333,7 @@ def main():
     parser = argparse.ArgumentParser(
         description='Do stuff via the MicroPython REPL',
         parents=[global_options])
-    parser.set_defaults(connect=False, func=lambda m, args: 0)
+    parser.set_defaults(connect=False, func=lambda user, m, args: 0)
 
     subparsers = parser.add_subparsers(help='sub-command help')
 

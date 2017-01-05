@@ -25,8 +25,12 @@ class UserMessages(object):
     def __init__(self, verbosity):
         self.verbosity = verbosity
 
-    def output(self, message):
-        """output, typically stdout"""
+    def output_binary(self, message):
+        """output bytes, typically stdout"""
+        sys.stdout.buffer.write(message)
+
+    def output_text(self, message):
+        """output text, typically stdout"""
         sys.stdout.write(message)
 
     def error(self, message):
@@ -77,9 +81,9 @@ def command_detect(user, m, args):
                     m.close()
             except Exception as e:
                 mpy_info = str(e)
-            user.output('{!s}: {}\n'.format(info, mpy_info))
+            user.output_text('{!s}: {}\n'.format(info, mpy_info))
         else:
-            user.output('{!s}\n'.format(info))
+            user.output_text('{!s}\n'.format(info))
 
 
 def command_run(user, m, args):
@@ -96,12 +100,12 @@ def command_run(user, m, args):
     if args.interactive:
         m.exec(code, timeout=0)
     else:
-        user.output(m.exec(code, timeout=args.timeout))
+        user.output_text(m.exec(code, timeout=args.timeout))
 
 
 def print_long_list(user, files_and_stat):
     for filename, st in files_and_stat:
-        user.output('{} {:4} {:4} {:>7} {} {}\n'.format(
+        user.output_text('{} {:4} {:4} {:>7} {} {}\n'.format(
             mode_to_chars(st.st_mode),
             st.st_uid if st.st_uid is not None else 'NONE',
             st.st_gid if st.st_gid is not None else 'NONE',
@@ -110,8 +114,8 @@ def print_long_list(user, files_and_stat):
             escaped(filename)))
 
 def print_short_list(user, files_and_stat):
-    user.output(' '.join(n for n, st in files_and_stat))
-    user.output('\n')
+    user.output_text(' '.join(n for n, st in files_and_stat))
+    user.output_text('\n')
 
 def command_ls(user, m, args):
     """\
@@ -124,7 +128,7 @@ def command_ls(user, m, args):
     for path in args.PATH:
         if args.recursive:
             for dirpath, dir_stat, file_stat in m.walk(path):
-                user.output('\n{}:\n'.format(posixpath.join(path, dirpath)))
+                user.output_text('\n{}:\n'.format(posixpath.join(path, dirpath)))
                 print_list(user, file_stat + dir_stat)
         else:
             print_list(user, sorted(m.glob(path)))
@@ -134,8 +138,8 @@ def command_cat(user, m, args):
     """\
     Print the contents of a file from the target to stdout.
     """
-    user.output(m.read_from_file(args.PATH))
-    user.output(b'\n')
+    user.output_binary(m.read_from_file(args.PATH))
+    user.output_binary(b'\n')
 
 
 def command_rm(user, m, args):
@@ -395,7 +399,7 @@ def main():
         if args.func:
             args.func(user, m, args)
         if args.command:
-            user.output(m.exec(args.command))
+            user.output_text(m.exec(args.command))
     except Exception as e:
         if args.develop:
             raise

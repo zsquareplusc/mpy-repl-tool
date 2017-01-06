@@ -244,8 +244,14 @@ class MicroPythonRepl(object):
         Return a list of tuples of filenames and stat info of given remote
         path.
         """
-        files_and_stat = self.evaluate(
-                'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
+        if not path.startswith('/'):
+            raise ValueError('only absolute paths are supported (beginning with "/")')
+        if path == '/':
+            files_and_stat = self.evaluate(
+                    'import os; print([(n, os.stat("/" + n)) for n in os.listdir("/")])')
+        else:
+            files_and_stat = self.evaluate(
+                    'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
 
     def walk(self, dirpath, topdown=True):

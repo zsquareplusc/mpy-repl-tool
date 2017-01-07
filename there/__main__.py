@@ -399,7 +399,10 @@ def main():
         if args.func:
             args.func(user, m, args)
         if args.command:
-            user.output_text(m.exec(args.command))
+            if args.interactive:
+                m.exec(args.command, timeout=0)
+            else:
+                user.output_text(m.exec(args.command))
     except Exception as e:
         if args.develop:
             raise

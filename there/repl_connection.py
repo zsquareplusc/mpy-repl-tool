@@ -282,5 +282,5 @@ class MicroPythonRepl(object):
         if not namepat:
             namepat = '*'
         entries = self.ls(path)
-        return ((p, st) for p, st in entries if fnmatch.fnmatch(p, namepat))
+        return ((posixpath.join(path, p), st) for p, st in entries if fnmatch.fnmatch(p, namepat))
 

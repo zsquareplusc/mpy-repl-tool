@@ -125,13 +125,20 @@ def command_ls(user, m, args):
         print_list = print_long_list
     else:
         print_list = print_short_list
-    for path in args.PATH:
-        if args.recursive:
-            for dirpath, dir_stat, file_stat in m.walk(path):
-                user.output_text('\n{}:\n'.format(posixpath.join(path, dirpath)))
-                print_list(user, file_stat + dir_stat)
-        else:
-            print_list(user, sorted(m.glob(path)))
+    for pattern in args.PATH:
+        for path, st in m.glob(pattern):
+            if args.recursive:
+                if st.st_mode & stat.S_IFDIR:
+                    for dirpath, dir_stat, file_stat in m.walk(path):
+                        user.output_text('\n{}:\n'.format(posixpath.join(path, dirpath)))
+                        print_list(user, file_stat + dir_stat)
+                else:
+                    print_list(user, [(path, st)])
+            else:
+                if st.st_mode & stat.S_IFDIR:
+                    print_list(user, sorted(m.ls(path)))
+                else:
+                    print_list(user, [(path, st)])
 
 
 def command_cat(user, m, args):

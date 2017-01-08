@@ -11,13 +11,14 @@ usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-u USER]
 Do stuff via the MicroPython REPL
 
 positional arguments:
-  {detect,run,ls,cat,put,rm,mount}
+  {detect,run,ls,cat,pull,push,rm,mount}
                         sub-command help
     detect              help locating a board
     run                 execute file contents on target
     ls                  list files
     cat                 print contents of one file
-    put                 file(s) to copy onto target
+    pull                file(s) to copy from target
+    push                file(s) to copy onto target
     rm                  remove files on target
     mount               Make target files accessible via FUSE
 
@@ -37,7 +38,7 @@ optional arguments:
 
 
 One ``--verbose`` prints progress information on stderr for some actions, e.g.
-``put``. A second ``--verbose`` (e.g. ``-vv``) also prints the data exchanged
+``push``. A second ``--verbose`` (e.g. ``-vv``) also prints the data exchanged
 between PC and target.
 
 The order of operation is as follows:
@@ -45,6 +46,8 @@ The order of operation is as follows:
 1) execute action
 2) run statements that are given with ``--command``
 3) start miniterm if ``--interactive`` is given
+
+All of these steps can be combined or used on their own.
 
 The environment variables ``MPY_PORT``, ``MPY_BAUDRATE``, ``MPY_USER`` and
 ``MPY_PASSWORD`` are used as defaults if the corresponding command line options
@@ -62,6 +65,7 @@ prompt after connecting. This is useful when connecting to a WiPy via telnet.
 
 Actions
 =======
+
 ``detect``
 ----------
 Help finding MicroPython boards.
@@ -102,11 +106,12 @@ such as the file size.
 usage: there ls [-h] [-l] [PATH [PATH ...]]
 
 positional arguments:
-  PATH        paths to list
+  PATH                  paths to list
 
 optional arguments:
-  -h, --help  show this help message and exit
-  -l, --long  show more info
+  -h, --help            show this help message and exit
+  -l, --long            show more info
+  -r, --recursive       list contents of directories
 
 
 The file date is often not very useful as most micropython boards do not have a
@@ -132,10 +137,13 @@ Remove files on target.
 usage: there rm [-h] PATH [PATH ...]
 
 positional arguments:
-  PATH        filename on target
+  PATH                  filename on target
 
 optional arguments:
-  -h, --help  show this help message and exit
+  -h, --help            show this help message and exit
+  -f, --force           delete anyway / no error if not existing
+  -r, --recursive       remove directories recursively
+  --dry-run             do not actually create anything on target
 
 
 ``pull``

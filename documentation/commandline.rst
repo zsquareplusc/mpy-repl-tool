@@ -6,7 +6,7 @@ Overview
 ========
 usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-u USER]
              [-w PASSWORD] [-v] [--develop]
-             {detect,run,ls,cat,put,rm,mount} ...
+             {detect,run,ls,cat,pull,push,rm,mount} ...
 
 Do stuff via the MicroPython REPL
 
@@ -147,7 +147,7 @@ optional arguments:
 
 
 ``pull``
--------
+--------
 Copies files and directories from the micropython board to the PC.
 
 usage: there pull [-h] [-r] [--dry-run] REMOTE [REMOTE ...] LOCAL
@@ -163,7 +163,7 @@ optional arguments:
 
 
 ``push``
--------
+--------
 Copies files and directories from the PC to the micropython board.
 
 usage: there push [-h] [-r] [--dry-run] LOCAL [LOCAL ...] REMOTE

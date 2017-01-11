@@ -12,13 +12,31 @@ error response, so that it is easy to parse with a machine.
 The class :class:`MicroPythonRepl` provides two functions for remote code
 execution:
 
-- :meth:`exec` executes the string and returns the output as string
-- :meth:`evaluate` executes the string and returns the output parsed using
-  ``ast.literal_eval`` so that numbers, strings, lists etc can be handled
-  as Python objects.
+.. class:: MicroPythonRepl
 
-The executed code typicaly uses ``print()`` to construct the answer, e.g.
-``print(repr(obj))``.
+    .. method:: exec(code)
+
+        :param str code: code to execute
+        :returns: all output as text
+        :rtype: str
+
+        Execute the string and returns the output as string. It may contain
+        multiple lines.
+
+    .. method:: evaluate(code)
+
+        :param str code: code to execute
+        :returns: Python object
+
+        Execute the string and returns the output parsed using
+        ``ast.literal_eval`` so that numbers, strings, lists etc. can be handled
+        as Python objects.
+
+        The executed code should use ``print()`` to construct the answer, e.g.
+        ``print(repr(obj))``. It is also possible to use multiple print statements
+        to construct the response, e.g. to create a list with many entries. As
+        printed lines are transfered immediately and the PC caches the data, it
+        is possible to create very large responses.
 
 :class:`MicroPythonRepl` has additional helper methods to list, read
 and write files.

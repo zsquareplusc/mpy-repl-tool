@@ -38,8 +38,104 @@ execution:
         printed lines are transfered immediately and the PC caches the data, it
         is possible to create very large responses.
 
-:class:`MicroPythonRepl` has additional helper methods to list, read
-and write files.
+    :class:`MicroPythonRepl` has additional helper methods to list, read
+    and write files.
+
+
+    .. method:: statvfs(path)
+
+        :param str path: Absolute path on target.
+        :rtype: os.statvfs_result
+
+        return stat information about remote filesystem
+
+    .. method:: stat(path, fake_attrs=False)
+
+        :param str path: Absolute path on target.
+        :returns: stat information about path on remote
+        :rtype: os.stat_result
+        :raises FileNotFoundError:
+
+    .. method:: remove(path)
+
+        :param str path: Absolute path on target.
+        :raises FileNotFoundError:
+
+        Delete file.
+
+    .. method:: rename(path, path_to)
+
+        :param str path: Absolute path on target.
+        :param str path_to: Absolute path on target.
+        :raises FileNotFoundError: Source is not found
+        :raises FileExistsError: Target already exits
+
+        Rename file or directory.
+
+    .. method:: mkdir(path)
+
+        :param str path: Absolute path on target.
+        :raises FileNotFoundError:
+
+        Create new directory.
+
+    .. method:: rmdir( path)
+
+        :param str path: Absolute path on target.
+        :raises FileNotFoundError:
+
+        Remove (empty) directory
+
+    .. method:: read_file(path, local_filename)
+
+        :param str path: Absolute path on target.
+        :param str local_filename: Path to local file
+        :raises FileNotFoundError:
+
+        Copy a file from remote to local filesystem.
+
+    .. method:: read_from_file(path)
+
+        :param str path: Absolute path on target.
+        :returns: file contents
+        :rtype: bytes
+
+        Return the contents of a remote file as byte string
+
+    .. method:: write_file(local_filename, path)
+
+        :param str local_filename: Path to local file
+        :param str path: Absolute path on target.
+
+        Copy a file from local to remote filesystem.
+
+    .. method:: write_to_file(path, contents)
+
+        :param str path: Absolute path on target.
+        :param bytes contents: Data
+
+        Write contents (expected to be bytes) to a file on the target.
+
+    .. method:: ls(path, fake_attrs=False)
+
+        :param str path: Absolute path on target.
+        :param bool fake_attrs: override uid and gid in stat
+
+        Return a list of tuples of filenames and stat info of given remote
+        path.
+
+    .. method:: walk(dirpath, topdown=True)
+
+        :param str dirpath: Absolute path on target.
+
+        Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
+        Where dir_st and file_st are lists of tuples of name and stat info.
+
+    .. method:: glob(pattern)
+
+        :param str pattern: Absolute path on target containing wildcards.
+
+        :mod:`fnmatch` is used to evalute the pattern.
 
 
 Mount Action

@@ -245,7 +245,7 @@ class MicroPythonRepl(object):
         path.
         """
         if not path.startswith('/'):
-            raise ValueError('only absolute paths are supported (beginning with "/")')
+            raise ValueError('only absolute paths are supported (beginning with "/"): {!r}'.format(path))
         if path == '/':
             files_and_stat = self.evaluate(
                     'import os; print([(n, os.stat("/" + n)) for n in os.listdir("/")])')

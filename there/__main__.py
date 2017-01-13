@@ -25,6 +25,10 @@ class UserMessages(object):
     def __init__(self, verbosity):
         self.verbosity = verbosity
 
+    def input_text(self, message):
+        """handles text input from stdin"""
+        return input(message)
+
     def output_binary(self, message):
         """output bytes, typically stdout"""
         sys.stdout.buffer.write(message)
@@ -311,6 +315,26 @@ def command_mount(user, m, args):
         user.error('ERROR: Could not mount - note: directory must exist\n')
 
 
+def command_port_store(user, m, args):
+    """\
+    Asks for a port and creates a python args file (default 'mpy-port')
+    that can be used with '@' (e.g. "python -m there cat main.py @mpy-port")
+    """
+    # list all serial ports
+    avail_ports = serial.tools.list_ports.comports()
+    for index, info in enumerate(avail_ports):
+        user.output_text('{}: {!s}\n'.format(index, info))
+    index = user.input_text('Enter port index: ')
+    try:
+        nr_index = int(index)
+    except ValueError:
+        user.output_text('invalid port index: {}'.format(index))
+        return
+    user.info('writing port {} to file {}.. \n'.format(avail_ports[nr_index][0],args.file))
+    with open(args.file, 'w') as fh:
+        fh.write('-p{}'.format(avail_ports[nr_index][0]))
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def main():
     import argparse
@@ -338,6 +362,7 @@ def main():
         help='show tracebacks on errors (development of this tool)')
 
     parser = argparse.ArgumentParser(
+        fromfile_prefix_chars='@',
         description='Do stuff via the MicroPython REPL',
         parents=[global_options])
     parser.set_defaults(connect=False, func=lambda user, m, args: 0)
@@ -388,6 +413,10 @@ def main():
     parser_mount.add_argument('MOUNTPOINT', help='local mount point, directory must exist')
     parser_mount.add_argument('-e', '--explore', action='store_true', help='auto open file explorer at mount point')
     parser_mount.set_defaults(func=command_mount, connect=True)
+
+    parser_port_store = subparsers.add_parser('port-store', help='Asks for port and stores it as args file', parents=[global_options])
+    parser_port_store.add_argument('-f', '--file', action='store', default='mpy-port', help='set args filename')
+    parser_port_store.set_defaults(func=command_port_store)
 
     args = parser.parse_args()
 

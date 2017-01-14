@@ -19,24 +19,34 @@ execution:
         :param str code: code to execute
         :returns: all output as text
         :rtype: str
+        :raises IOError: execution failed
 
         Execute the string and returns the output as string. It may contain
         multiple lines.
-
-    .. method:: evaluate(code)
-
-        :param str code: code to execute
-        :returns: Python object
-
-        Execute the string and returns the output parsed using
-        ``ast.literal_eval`` so that numbers, strings, lists etc. can be handled
-        as Python objects.
 
         The executed code should use ``print()`` to construct the answer, e.g.
         ``print(repr(obj))``. It is also possible to use multiple print statements
         to construct the response, e.g. to create a list with many entries. As
         printed lines are transfered immediately and the PC caches the data, it
         is possible to create very large responses.
+
+        If the target raises an exception, this function will raise an
+        exception too. The type depends on the exception. An ``IOError`` is
+        rasied by default, unless the Traceback can be parsed. If an
+        ``OSError`` is recognized it or one of the sublcasses
+        (``FileNotFoundError``, ``PermissionError``,  ``FileExistsError``) will
+        be rised.
+
+
+    .. method:: evaluate(code)
+
+        :param str code: code to execute
+        :returns: Python object
+
+        Execute the string (just like :meth:`eval`) and return the output
+        parsed using ``ast.literal_eval`` so that numbers, strings, lists etc.
+        can be handled as Python objects.
+
 
     :class:`MicroPythonRepl` has additional helper methods to list, read
     and write files.
@@ -52,9 +62,12 @@ execution:
     .. method:: stat(path, fake_attrs=False)
 
         :param str path: Absolute path on target.
+        :param bool fake_attrs: override uid and gid in stat
         :returns: stat information about path on remote
         :rtype: os.stat_result
         :raises FileNotFoundError:
+
+        Return stat info for given path.
 
     .. method:: remove(path)
 
@@ -124,12 +137,19 @@ execution:
         Return a list of tuples of filenames and stat info of given remote
         path.
 
+        If ``fake_attrs`` is true, UID, GID and r/w flags are overriden. This
+        is used for the mount feature.
+
     .. method:: walk(dirpath, topdown=True)
 
         :param str dirpath: Absolute path on target.
+        :param bool topdown: Reverse order.
 
         Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
         Where dir_st and file_st are lists of tuples of name and stat info.
+
+        If ``topdown`` is true then the top directory is yielded as first item,
+        if it is false, then thesub directories are yielded first.
 
     .. method:: glob(pattern)
 

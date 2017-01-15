@@ -80,7 +80,7 @@ class ReplFileTransfer(Operations):
         except KeyError:
             dirents = ['.', '..']
             if (self._stat(path).st_mode & stat.S_IFDIR) != 0:
-                for name, st in self.file_interface.ls(path):
+                for name, st in self.file_interface.ls(path, fake_attrs=True):
                     dirents.append(name)
                     self._stat_cache[posixpath.join(path, name)] = st
             self._listdir_cache[path] = dirents

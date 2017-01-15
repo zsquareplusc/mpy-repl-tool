@@ -168,18 +168,22 @@ class MicroPythonRepl(object):
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
+    def _override_stat(self, st):
+        # XXX fake some attributes: rw, uid/gid
+        st = list(st)
+        st[stat.ST_MODE] |= 0o660
+        try:
+            st[stat.ST_GID] = os.getgid()
+            st[stat.ST_UID] = os.getuid()
+        except AttributeError:
+            pass  # Windwos
+        return st
+
     def stat(self, path, fake_attrs=False):
         """return stat information about path on remote"""
         st = self.evaluate('import os; print(os.stat({!r}))'.format(str(path)))
         if fake_attrs:
-            # XXX fake some attributes: rw, uid/gid
-            st = list(st)
-            st[stat.ST_MODE] |= 0o660
-            try:
-                st[stat.ST_GID] = os.getgid()
-                st[stat.ST_UID] = os.getuid()
-            except AttributeError:
-                pass  # Windwos
+            st = self._override_stat(st)
         return os.stat_result(st)
 
     def remove(self, path):
@@ -252,6 +256,8 @@ class MicroPythonRepl(object):
         else:
             files_and_stat = self.evaluate(
                     'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
+        if fake_attrs:
+            files_and_stat = [(n, self._override_stat(st)) for (n, st) in files_and_stat]
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
 
     def walk(self, dirpath, topdown=True):

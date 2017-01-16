@@ -129,7 +129,7 @@ execution:
 
         Write contents (expected to be bytes) to a file on the target.
 
-    .. method:: ls(path, fake_attrs=False)
+    .. method:: listdir(path, fake_attrs=False)
 
         :param str path: Absolute path on target.
         :param bool fake_attrs: override uid and gid in stat

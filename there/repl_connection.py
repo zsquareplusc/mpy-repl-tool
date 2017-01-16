@@ -243,7 +243,7 @@ class MicroPythonRepl(object):
             'print(_f.truncate())\n'
             '_f.close(); del _f; del _b'.format(str(path), int(length)))
 
-    def ls(self, path, fake_attrs=False):
+    def listdir(self, path, fake_attrs=False):
         """
         Return a list of tuples of filenames and stat info of given remote
         path.
@@ -267,7 +267,7 @@ class MicroPythonRepl(object):
         """
         dirnames = []
         filenames = []
-        for name, st in self.ls(dirpath):
+        for name, st in self.listdir(dirpath):
             if (st.st_mode & stat.S_IFDIR) != 0:
                 dirnames.append((name, st))
             else:
@@ -287,6 +287,6 @@ class MicroPythonRepl(object):
         # XXX does not handle patterns in path
         if not namepat:
             namepat = '*'
-        entries = self.ls(path)
+        entries = self.listdir(path)
         return ((posixpath.join(path, p), st) for p, st in entries if fnmatch.fnmatch(p, namepat))
 

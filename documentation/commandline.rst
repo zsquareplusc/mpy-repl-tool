@@ -55,7 +55,7 @@ are not given. And if those are not given, the default is ``hwgrep://USB`` and
 115200 baud, and None for user and password.
 
 ``hwgrep://USB`` picks a random USB-Serial adapter, works best if there
-is only one micropython board connected. Otherwise the detect action should
+is only one MicroPython board connected. Otherwise the detect action should
 be used to find the comport and use ``--port`` option or environment
 variable.
 
@@ -88,8 +88,8 @@ Execute the contents of a (small) file on the target, without saving it to
 the targets file system.
 
 The file contents is sent to the REPL. The execution time is limited (see
-``--timeout`` option to change) unless ``--interactive`` is given, then the
-erminal is started immendiately.
+``--timeout`` option to change) unless ``--interactive`` is given, then
+miniterm is started immediately.
 
 usage: there run [-h] [FILE]
 
@@ -99,6 +99,8 @@ positional arguments:
 optional arguments:
   -h, --help                        show this help message and exit
   -t TIMEOUT, --timeout TIMEOUT     wait x seconds for completion
+
+Note, larger files can be executed using ``push`` and ``--command`` combined.
 
 
 ``ls``
@@ -118,7 +120,7 @@ optional arguments:
 
 
 The file date (shown in ``--long`` format) is often not very useful as most
-micropython boards do not have a battery backed RTC running.
+MicroPython boards do not have a battery backed RTC running.
 
 
 ``cat``
@@ -136,8 +138,9 @@ optional arguments:
 
 ``rm``
 ------
-Remove files on target.
-usage: there rm [-h] PATH [PATH ...]
+Remove files and/or directories on the target.
+
+usage: there rm [-h] [-r] [-f] PATH [PATH ...]
 
 positional arguments:
   PATH                  filename on target
@@ -151,7 +154,12 @@ optional arguments:
 
 ``pull``
 --------
-Copies files and directories from the micropython board to the PC.
+Copies files and directories from the MicroPython board to the PC.
+
+The remote path should be absolute (starting with ``/``) and supports
+wildcards, e.g. ``/*.py``. On POSIX systems it may be needed to escape
+wildcards to avoid local expansion (e.g.  ``/\*.py`` or with quotes
+``"/*.py"``.
 
 usage: there pull [-h] [-r] [--dry-run] REMOTE [REMOTE ...] LOCAL
 
@@ -167,7 +175,12 @@ optional arguments:
 
 ``push``
 --------
-Copies files and directories from the PC to the micropython board.
+Copies files and directories from the PC to the MicroPython board.
+
+The remote path should be absolute (starting with ``/``). When copying a single
+file, the remote path may be a directory or a path including filename. When
+copying multiple files it must be a directory. The local path supports
+wildcards, e.g. ``*.py``.
 
 usage: there push [-h] [-r] [--dry-run] LOCAL [LOCAL ...] REMOTE
 
@@ -181,6 +194,10 @@ optional arguments:
   --dry-run        do not actually create anything on target
 
 Directories named ``__pycache__`` are excluded.
+
+The action can also be combined with ``--command`` and
+``--interactive`` to start the downloaded code and see its
+output.
 
 
 ``mount``
@@ -197,7 +214,7 @@ optional arguments:
   -e, --explore  auto open file explorer at mount point
 
 A virtual file system is created and attached to the given directory. It
-mirrors the contents of the micropython board. Operations such as creating,
+mirrors the contents of the MicroPython board. Operations such as creating,
 renaming, deleting are supported.
 
 To improve performance, the mount command is caching data such as directory

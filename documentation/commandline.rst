@@ -87,7 +87,9 @@ optional arguments:
 Execute the contents of a (small) file on the target, without saving it to
 the targets file system.
 
-The file contents is sent to the REPL.
+The file contents is sent to the REPL. The execution time is limited (see
+``--timeout`` option to change) unless ``--interactive`` is given, then the
+erminal is started immendiately.
 
 usage: there run [-h] [FILE]
 
@@ -95,7 +97,8 @@ positional arguments:
   FILE        load this file contents
 
 optional arguments:
-  -h, --help  show this help message and exit
+  -h, --help                        show this help message and exit
+  -t TIMEOUT, --timeout TIMEOUT     wait x seconds for completion
 
 
 ``ls``
@@ -103,7 +106,7 @@ optional arguments:
 List files on the targets file system. With ``--long`` more details are shown
 such as the file size.
 
-usage: there ls [-h] [-l] [PATH [PATH ...]]
+usage: there ls [-h] [-l] [-r] [PATH [PATH ...]]
 
 positional arguments:
   PATH                  paths to list
@@ -114,8 +117,8 @@ optional arguments:
   -r, --recursive       list contents of directories
 
 
-The file date is often not very useful as most micropython boards do not have a
-battery backed RTC running.
+The file date (shown in ``--long`` format) is often not very useful as most
+micropython boards do not have a battery backed RTC running.
 
 
 ``cat``

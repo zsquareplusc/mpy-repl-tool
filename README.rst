@@ -15,8 +15,8 @@ Key features of this one:
 
 - ``detect`` serial ports and micropython boards.
 - ``run`` temporary scripts.
-- ``pull`` get files from the target filesystem.
-- ``push`` files on the target filesystem.
+- ``pull`` get files and directories from the target filesystem.
+- ``push`` files and directories on the target filesystem.
 - ``mount`` target as filesytem (FUSE).
 - ``--interactive`` mode (terminal).
 - All of the above, and more, via the serial REPL connection to a micropython board.
@@ -65,10 +65,5 @@ The tool automatically selects a USB port for communication, it may take the
 wrong one if multiple USB serial devices are connected. In that case, use
 ``there detect`` to list all devices and then ``-p PORT`` to specify the
 port to use on the other calls.
-
-.. note::
-
-    Currently the escape handling in miniterm is disabled which makes editing
-    on the MicroPython REPL a bit inconvenient.
 
 Use ``python3 -m there <action> --help`` to get help on sub-commands.

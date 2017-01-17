@@ -69,6 +69,9 @@ execution:
 
         Return stat info for given path.
 
+        If ``fake_attrs`` is true, UID, GID and r/w flags are overriden. This
+        is used for the mount feature.
+
     .. method:: remove(path)
 
         :param str path: Absolute path on target.

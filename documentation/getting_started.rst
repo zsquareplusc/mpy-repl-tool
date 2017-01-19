@@ -17,14 +17,14 @@ The source code is available at github_.
 .. _github: https://github.com/zsquareplusc/mpy-repl-tool
 
 
-Find a micropython board
+Find a MicroPython board
 ========================
 ::
 
     # list serial ports
     python3 -m there detect
 
-    # and optionally also test them for a running micropython
+    # and optionally also test them for a running MicroPython
     # (interrupts a running program on target)
     python3 -m there detect --test
 

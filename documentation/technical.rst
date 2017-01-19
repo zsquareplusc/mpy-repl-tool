@@ -4,13 +4,14 @@
 
 REPL connection
 ===============
-``repl_connection.py`` implements a Protocol for pySerial so that statements
-can be executed on a remote Python prompt (REPL). Micropython has a special
+``repl_connection.py`` implements a Protocol_ for pySerial_ so that statements
+can be executed on a remote Python prompt (REPL). MicroPython_ has a special
 "machine mode" where it does not echo input and clearly marks the output and
 error response, so that it is easy to parse with a machine.
 
 The class :class:`MicroPythonRepl` provides two functions for remote code
 execution:
+
 
 .. class:: MicroPythonRepl
 
@@ -190,15 +191,19 @@ handles the special keys on Windows and translates them to escape sequences. It
 also uses the Python module colorama_ to get support for receiving some
 escape sequences.
 
-.. _pySerial: http://pypi.python.org/pypi/pyserial
-.. _colorama: http://pypi.python.org/pypi/colorama
 
 .. note::
 
     ``colorama`` does currently not support (or recognize, when split accross
-    multiple writes) all escape sequences sent by micropython, so some quirks
+    multiple writes) all escape sequences sent by MicroPython, so some quirks
     may be visible under Windows.
 
 .. note::
 
     An alternative to ``colorama`` is to get ``ansy.sys`` working.
+
+
+.. _Protocol: https://pyserial.readthedocs.io/en/latest/pyserial_api.html#serial.threaded.Protocol
+.. _MicroPython: https://micropython.org/
+.. _pySerial: http://pypi.python.org/pypi/pyserial
+.. _colorama: http://pypi.python.org/pypi/colorama

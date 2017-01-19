@@ -12,7 +12,7 @@ except ImportError:
 setup(
     name="mpy-repl-tool",
     #~ description="",
-    version='0.1',
+    version='0.2',
     author="Chris Liechti",
     author_email="cliechti@gmx.net",
     url="https://github.com/zsquareplusc/mpy-repl-tool",

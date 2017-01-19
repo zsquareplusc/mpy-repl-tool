@@ -34,8 +34,8 @@ execution:
         exception too. The type depends on the exception. An ``IOError`` is
         rasied by default, unless the Traceback can be parsed. If an
         ``OSError`` is recognized it or one of the sublcasses
-        (``FileNotFoundError``, ``PermissionError``,  ``FileExistsError``) will
-        be rised.
+        (``FileNotFoundError``, ``PermissionError``,  ``FileExistsError``),
+        then that one will be rised instead.
 
 
     .. method:: evaluate(code)
@@ -57,7 +57,8 @@ execution:
         :param str path: Absolute path on target.
         :rtype: os.statvfs_result
 
-        return stat information about remote filesystem
+        Return statvfs information (disk size, free space etc.) about remote
+        filesystem.
 
     .. method:: stat(path, fake_attrs=False)
 
@@ -69,7 +70,7 @@ execution:
 
         Return stat info for given path.
 
-        If ``fake_attrs`` is true, UID, GID and r/w flags are overriden. This
+        If ``fake_attrs`` is true, UID, GID and R/W flags are overriden. This
         is used for the mount feature.
 
     .. method:: remove(path)
@@ -77,16 +78,17 @@ execution:
         :param str path: Absolute path on target.
         :raises FileNotFoundError:
 
-        Delete file.
+        Delete one file. See also :meth:`rmdir`.
 
-    .. method:: rename(path, path_to)
+    .. method:: rename(source, target)
 
-        :param str path: Absolute path on target.
-        :param str path_to: Absolute path on target.
+        :param str source: Absolute path on target.
+        :param str target: Absolute path on target.
         :raises FileNotFoundError: Source is not found
         :raises FileExistsError: Target already exits
 
-        Rename file or directory.
+        Rename file or directory. Source and target path need to be on the same
+        filesystem.
 
     .. method:: mkdir(path)
 
@@ -116,7 +118,7 @@ execution:
         :returns: file contents
         :rtype: bytes
 
-        Return the contents of a remote file as byte string
+        Return the contents of a remote file as byte string.
 
     .. method:: write_file(local_filename, path)
 
@@ -140,25 +142,33 @@ execution:
         Return a list of tuples of filenames and stat info of given remote
         path.
 
-        If ``fake_attrs`` is true, UID, GID and r/w flags are overriden. This
+        If ``fake_attrs`` is true, UID, GID and R/W flags are overriden. This
         is used for the mount feature.
 
-    .. method:: walk(dirpath, topdown=True)
+    .. method:: walk(topdir, topdown=True)
 
-        :param str dirpath: Absolute path on target.
+        :param str topdir: Absolute path on target.
         :param bool topdown: Reverse order.
+        :return: iterator over tuples ``(root, dirs, files)`` where ``dirs``
+                 and ``files`` are lists of tuples containing
+                 ``(name, stat_result)``
 
-        Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
-        Where dir_st and file_st are lists of tuples of name and stat info.
+        Recursively scan remote path and yield all items that are found.
 
         If ``topdown`` is true then the top directory is yielded as first item,
-        if it is false, then thesub directories are yielded first.
+        if it is false, then the sub-directories are yielded first.
+
+        If ``topdown`` is true, it is allowed to remove items from the ``dirs``
+        list, so that they are not searched.
 
     .. method:: glob(pattern)
 
         :param str pattern: Absolute path on target containing wildcards.
+        :return: iterator over ``(name, stat_result)`` items that match the pattern
 
         :mod:`fnmatch` is used to evalute the pattern.
+
+        Note: ``**`` is currently not supported.
 
 
 Mount Action

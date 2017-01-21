@@ -72,6 +72,8 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                     raise PermissionError(13, 'Permission Error')
                 elif err_num == 17:
                     raise FileExistsError(17, 'File Already Exists Error')
+                elif err_num == 19:
+                    raise OSError(err_num, 'No Such Device Error')
                 elif err_num:
                     raise OSError(err_num, 'OSError')
 

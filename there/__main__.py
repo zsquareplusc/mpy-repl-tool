@@ -293,6 +293,16 @@ def command_push(user, m, args):
                     m.write_file(path, dst)
 
 
+def command_df(user, m, args):
+    """print filesystem information (size/free)"""
+    st = m.statvfs(args.PATH)
+    user.output_text('Total Size: {}, used: {}, free: {}\n'.format(
+        nice_bytes(st.f_bsize * st.f_blocks),
+        nice_bytes(st.f_bsize * (st.f_blocks - st.f_bfree)),
+        nice_bytes(st.f_bsize * st.f_bfree),
+        ))
+
+
 def command_mount(user, m, args):
     """\
     Mount the target as file system via FUSE.
@@ -383,6 +393,10 @@ def main():
     parser_rm.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
     parser_rm.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
+
+    parser_df = subparsers.add_parser('df', help='Show filesytem intformation', parents=[global_options])
+    parser_df.add_argument('PATH', nargs='?', default='/', help='remote path')
+    parser_df.set_defaults(func=command_df, connect=True)
 
     parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE', parents=[global_options])
     parser_mount.add_argument('MOUNTPOINT', help='local mount point, directory must exist')

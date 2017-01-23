@@ -164,6 +164,11 @@ class MicroPythonRepl(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+    def soft_reset(self):
+        self.protocol.transport.write(b'\x04')
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
     def statvfs(self, path):
         """return stat information about remote filesystem"""
         st = self.evaluate('import os; print(os.statvfs({!r}))'.format(str(path)))

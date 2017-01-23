@@ -32,6 +32,7 @@ Overview
       -c COMMAND, --command COMMAND
                             execute given code on target
       -i, --interactive     drop to interactive shell at the end
+      --reset               do a soft reset on the end
       -u USER, --user USER  response to login prompt
       -w PASSWORD, --password PASSWORD
                             response to password prompt
@@ -46,7 +47,8 @@ The order of operation is as follows:
 
 1) execute action
 2) run statements that are given with ``--command``
-3) start miniterm if ``--interactive`` is given
+3) execute --reset
+4) start miniterm if ``--interactive`` is given
 
 All of these steps can be combined or used on their own.
 

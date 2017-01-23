@@ -336,6 +336,8 @@ def main():
         help='execute given code on target')
     global_options.add_argument('-i', '--interactive', action='store_true',
         help='drop to interactive shell at the end')
+    global_options.add_argument('--reset', action='store_true',
+        help='do a soft reset on the end')
     global_options.add_argument('-u', '--user',
         default=os.environ.get('MPY_USER'),
         help='response to login prompt')
@@ -424,6 +426,8 @@ def main():
                 m.exec(args.command, timeout=0)
             else:
                 user.output_text(m.exec(args.command))
+        if args.reset:
+            m.soft_reset()
     except Exception as e:
         if args.develop:
             raise

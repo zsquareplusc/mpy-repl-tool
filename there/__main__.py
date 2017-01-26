@@ -136,7 +136,7 @@ def command_ls(user, m, args):
                     print_list(user, [(path, st)])
             else:
                 if st.st_mode & stat.S_IFDIR:
-                    print_list(user, sorted(m.listdir(path)))
+                    print_list(user, sorted([(posixpath.join(path, name), st) for name, st in m.listdir(path)]))
                 else:
                     print_list(user, [(path, st)])
 

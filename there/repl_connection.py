@@ -290,10 +290,43 @@ class MicroPythonRepl(object):
 
     def glob(self, pattern):
         """Pattern match files on remote. Returns a list of tuples of name and stat info"""
-        path, namepat = posixpath.split(pattern)
-        # XXX does not handle patterns in path
-        if not namepat:
-            namepat = '*'
-        entries = self.listdir(path)
-        return ((posixpath.join(path, p), st) for p, st in entries if fnmatch.fnmatch(p, namepat))
+        parts = pattern.split('/')
+        if pattern.startswith('/'):
+            parts = parts[1:]
+        if pattern.endswith('/'):
+            parts = parts[:-1]
+        if not parts:
+            yield ('/', self.stat('/'))
+        if len(parts) == 2 and parts[0] == '**':
+            yield from self._glob('/', parts[1:])
+        if parts:
+            yield from self._glob('/', parts)
+
+
+    def _glob(self, root, parts):
+        dirnames = []
+        scandirnames = []
+        filenames = []
+        try:
+            for name, st in self.listdir(root):
+                if (st.st_mode & stat.S_IFDIR) != 0:
+                    if len(parts) == 1 and parts[0] != '**' and fnmatch.fnmatch(name, parts[0]):
+                        dirnames.append((name, st))
+                    if parts[0] == '**' or fnmatch.fnmatch(name, parts[0]):
+                        scandirnames.append((name, st))
+                else:
+                    if len(parts) == 1 and parts[0] != '**':
+                        if fnmatch.fnmatch(name, parts[0]):
+                            filenames.append((name, st))
+            if len(parts) > 1:
+                for dirname, st in scandirnames:
+                    yield from self._glob(posixpath.join(root, dirname), parts[1:])
+                if parts[0] == '**':
+                    for dirname, st in scandirnames:
+                        yield from self._glob(posixpath.join(root, dirname), parts[:])
+            else:
+                yield from ((posixpath.join(root, name), st) for name, st in dirnames)
+            yield from ((posixpath.join(root, name), st) for name, st in filenames)
+        except OSError as e:
+            pass
 

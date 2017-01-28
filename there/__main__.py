@@ -103,7 +103,7 @@ def command_run(user, m, args):
         user.output_text(m.exec(code, timeout=args.timeout))
 
 
-def print_long_list(user, files_and_stat):
+def print_long_list(user, files_and_stat, root=None):
     for filename, st in files_and_stat:
         user.output_text('{} {:4} {:4} {:>7} {} {}\n'.format(
             mode_to_chars(st.st_mode),
@@ -111,11 +111,16 @@ def print_long_list(user, files_and_stat):
             st.st_gid if st.st_gid is not None else 'NONE',
             nice_bytes(st.st_size),
             time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
-            escaped(filename)))
+            escaped(filename) if root is None else escaped(posixpath.join(root, filename))
+            ))
 
-def print_short_list(user, files_and_stat):
-    user.output_text(' '.join(n for n, st in files_and_stat))
+
+def print_short_list(user, files_and_stat, root=None):
+    user.output_text('\n'.join(
+        escaped(n) if root is None else escaped(posixpath.join(root, n))
+        for n, st in files_and_stat))
     user.output_text('\n')
+
 
 def command_ls(user, m, args):
     """\
@@ -130,13 +135,12 @@ def command_ls(user, m, args):
             if args.recursive:
                 if st.st_mode & stat.S_IFDIR:
                     for dirpath, dir_stat, file_stat in m.walk(path):
-                        user.output_text('\n{}:\n'.format(posixpath.join(path, dirpath)))
-                        print_list(user, file_stat + dir_stat)
+                        print_list(user, file_stat + dir_stat, path)
                 else:
                     print_list(user, [(path, st)])
             else:
                 if st.st_mode & stat.S_IFDIR:
-                    print_list(user, sorted([(posixpath.join(path, name), st) for name, st in m.listdir(path)]))
+                    print_list(user, m.listdir(path), path)
                 else:
                     print_list(user, [(path, st)])
 

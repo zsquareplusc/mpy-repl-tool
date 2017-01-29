@@ -298,12 +298,15 @@ class MicroPythonRepl(object):
         if not parts:
             yield ('/', self.stat('/'))
         if len(parts) == 2 and parts[0] == '**':
+            #  include root
             yield from self._glob('/', parts[1:])
+        # this is the main recursive search
         if parts:
             yield from self._glob('/', parts)
 
 
     def _glob(self, root, parts):
+        """recursive search yielding matches"""
         dirnames = []
         scandirnames = []
         filenames = []
@@ -319,9 +322,11 @@ class MicroPythonRepl(object):
                         if fnmatch.fnmatch(name, parts[0]):
                             filenames.append((name, st))
             if len(parts) > 1:
+                # there are more parts in the pattern, scan subdirectories
                 for dirname, st in scandirnames:
                     yield from self._glob(posixpath.join(root, dirname), parts[1:])
                 if parts[0] == '**':
+                    # the ** pattern means any depth, so also search with the pattern still included
                     for dirname, st in scandirnames:
                         yield from self._glob(posixpath.join(root, dirname), parts[:])
             else:

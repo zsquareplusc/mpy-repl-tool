@@ -169,8 +169,6 @@ execution:
 
         :mod:`fnmatch` is used to evalute the pattern.
 
-        Note: ``**`` is currently not supported.
-
 
 Mount Action
 ============

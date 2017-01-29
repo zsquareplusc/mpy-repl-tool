@@ -104,6 +104,7 @@ def command_run(user, m, args):
 
 
 def print_long_list(user, files_and_stat, root=None):
+    """output function for the --long format of ls"""
     for filename, st in files_and_stat:
         user.output_text('{} {:4} {:4} {:>7} {} {}\n'.format(
             mode_to_chars(st.st_mode),
@@ -116,6 +117,7 @@ def print_long_list(user, files_and_stat, root=None):
 
 
 def print_short_list(user, files_and_stat, root=None):
+    """output function for the short format of ls"""
     user.output_text('\n'.join(
         escaped(n) if root is None else escaped(posixpath.join(root, n))
         for n, st in files_and_stat))
@@ -190,6 +192,7 @@ EXCLUDE_DIRS = ['__pycache__']
 
 
 def ensure_dir(m, path):
+    """ensure that path is a directory, make directory if needed"""
     try:
         st = m.stat(path)
     except FileNotFoundError:

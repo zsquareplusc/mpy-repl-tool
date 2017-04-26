@@ -30,7 +30,7 @@ import serial
 import serial.threaded
 
 # match "OSError: [Errno 2] ENOENT" and "OSError: 2"
-re_oserror = re.compile(b'OSError: (\[Errno )?(\d+)(\] )?')
+re_oserror = re.compile('OSError: (\[Errno )?(\d+)(\] )?')
 
 
 def prefix(text, prefix):
@@ -62,7 +62,7 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
     def _parse_error(self, text):
         """Read the error message and convert exceptions"""
         lines = text.splitlines()
-        if lines[0].startswith(b'Traceback'):
+        if lines[0].startswith('Traceback'):
             m = re_oserror.match(lines[-1])
             if m:
                 err_num = int(m.group(2))
@@ -77,7 +77,8 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 elif err_num:
                     raise OSError(err_num, 'OSError')
 
-    def exec(self, string, timeout=3):
+    def exec_raw(self, string, timeout=3):
+        """Exec code, returning (stdout, stderr)"""
         if self.verbose:
             sys.stderr.write(prefix(string, 'I: '))
         self.transport.write(string.encode('utf-8'))
@@ -86,7 +87,12 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         self.transport.write(b'\x04')
         if timeout != 0:
             try:
-                data = self.response.get(timeout=timeout)
+                try:
+                    data = self.response.get(timeout=timeout)
+                except KeyboardInterrupt:
+                    # forward to board, read output again to get the expected traceback message
+                    self.transport.write(b'\x03')  # CTRL+C
+                    data = self.response.get(timeout=timeout)
             except queue.Empty:
                 raise IOError('timeout')
             else:
@@ -95,12 +101,17 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                     raise IOError('data was not accepted: {}: {}'.format(out, err))
                 if self.verbose:
                     sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O: '))
-                if err:
-                    if self.verbose:
+                    if err:
                         sys.stderr.write(prefix(err.decode('utf-8'), 'E: '))
-                    self._parse_error(err)
-                    raise IOError('execution failed: {}: {}'.format(out, err))
-                return out[2:].decode('utf-8')
+                return out[2:].decode('utf-8'), err.decode('utf-8')
+
+    def exec(self, string, timeout=3):
+        out, err = self.exec_raw(string, timeout)
+        if err:
+            self._parse_error(err)
+            raise IOError('execution failed: {}: {}'.format(out, err))
+        return out
+
 
 
 class MicroPythonRepl(object):
@@ -150,8 +161,15 @@ class MicroPythonRepl(object):
             self.serial.write(b'\x02')  # exit raw repl mode
         self._thread.close()
 
+    def exec_raw(self, *args, **kwargs):
+        """Execute the string on the target and return its stdout and stderr."""
+        return self.protocol.exec_raw(*args, **kwargs)
+
     def exec(self, *args, **kwargs):
-        """Execute the string on the target and return its output."""
+        """\
+        Execute the string on the target and return its output.
+        Raise Exception on remote errors.
+        """
         return self.protocol.exec(*args, **kwargs)
 
     def evaluate(self, string):
@@ -165,7 +183,8 @@ class MicroPythonRepl(object):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     def soft_reset(self):
-        self.protocol.transport.write(b'\x04')
+        self.protocol.transport.write(b'\x03\x04')
+        # XXX read startup message
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

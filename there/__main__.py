@@ -111,7 +111,7 @@ def print_long_list(user, files_and_stat, root=None):
             st.st_uid if st.st_uid is not None else 'NONE',
             st.st_gid if st.st_gid is not None else 'NONE',
             nice_bytes(st.st_size),
-            time.strftime('%Y-%m-%d %02H:%02M:%02S', time.localtime(st.st_mtime)),
+            time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime)),
             escaped(filename) if root is None else escaped(posixpath.join(root, filename))
             ))
 

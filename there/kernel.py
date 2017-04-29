@@ -23,6 +23,7 @@ Original idea: Tony D! https://github.com/adafruit/jupyter_micropython_kernel
 """
 import argparse
 import shlex
+import sys
 import traceback
 from ipykernel.kernelbase import Kernel
 from . import repl_connection
@@ -53,13 +54,22 @@ class MicroPythonKernel(Kernel):
             'stream',
             {'name': stream, 'text': message})
 
-    def handle_meta_command(self, commandline):
+    def handle_meta_command(self, code):
+        self.body = code.splitlines()
+        commandline = self.body.pop(0)
         args = shlex.split(commandline)
         command = args.pop(0)
         try:
-            getattr(self, 'meta_{}'.format(command[1:]))(*args)
+            streams = sys.stdout, sys.stderr
+            sys.stdout = self
+            sys.stderr = self
+            try:
+                getattr(self, 'meta_{}'.format(command[1:]))(*args)
+            finally:
+                sys.stdout, sys.stderr = streams
         except SystemExit as e:
-            self.write('mpy-repl-tool: command exited: {}'.format(e), stream='stderr')
+            if e.code != 0:
+                self.write('mpy-repl-tool: command exited: {}'.format(e), stream='stderr')
         except Exception as e:
             self.write('mpy-repl-tool: internal error', stream='stderr')
             traceback.print_exception(e, e, e.__traceback__, file=self)
@@ -81,7 +91,7 @@ class MicroPythonKernel(Kernel):
             self.repl.close()
             self.repl = None
         self.repl = repl_connection.MicroPythonRepl(port, baudrate)
-        self.repl.protocol.verbose = True
+        #~ self.repl.protocol.verbose = True
         self.write('mpy-repl-tool: connected to {0.port}: ' 
                    '{0.baudrate},{0.bytesize},{0.parity},{0.stopbits}\n'.format(self.repl.serial))
         try:
@@ -110,7 +120,7 @@ class MicroPythonKernel(Kernel):
 
     def meta_ls(self, *str_args):
         #~ self.write('mpy-repl-tool: listdir {}:\n{}'.format(path, self.repl.listdir(path)))
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog='%ls')
         parser.add_argument('PATH', nargs='*', default='/', help='paths to list')
         parser.add_argument('-l', '--long', action='store_true', help='show more info')
         parser.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
@@ -118,15 +128,8 @@ class MicroPythonKernel(Kernel):
         args = parser.parse_args(str_args)
         commands.command_ls(self, self.repl, args)
 
-
-    def meta_cat(self, *str_args):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('PATH', help='filename on target')
-        args = parser.parse_args(str_args)
-        commands.command_cat(self, self.repl, args)
-
     def meta_pull(self, *str_args):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog='%pull')
         parser.add_argument('REMOTE', nargs='+', help='one or more source files/directories')
         parser.add_argument('LOCAL', nargs=1, help='destination directory')
         parser.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
@@ -135,7 +138,7 @@ class MicroPythonKernel(Kernel):
         commands.command_pull(self, self.repl, args)
 
     def meta_push(self, *str_args):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog='%push')
         parser.add_argument('LOCAL', nargs='+', help='one or more source files/directories')
         parser.add_argument('REMOTE', nargs=1, help='destination directory')
         parser.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
@@ -144,13 +147,19 @@ class MicroPythonKernel(Kernel):
         commands.command_push(self, self.repl, args)
 
     def meta_cat(self, *str_args):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog='%cat')
         parser.add_argument('PATH', help='filename on target')
         args = parser.parse_args(str_args)
         commands.command_cat(self, self.repl, args)
 
+    def meta_write(self, *str_args):
+        parser = argparse.ArgumentParser(prog='%write')
+        parser.add_argument('PATH', help='filename on target')
+        args = parser.parse_args(str_args)
+        self.repl.write_to_file(args.PATH, '\n'.join(self.body).encode('utf-8'))
+
     def meta_rm(self, *str_args):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog='%rm')
         parser.add_argument('PATH', nargs='+', help='filename on target')
         parser.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
         parser.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
@@ -159,7 +168,7 @@ class MicroPythonKernel(Kernel):
         commands.command_rm(self, self.repl, args)
 
     def meta_df(self, *str_args):
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog='%df')
         parser.add_argument('PATH', nargs='?', default='/', help='remote path')
         args = parser.parse_args(str_args)
         commands.command_df(self, self.repl, args)

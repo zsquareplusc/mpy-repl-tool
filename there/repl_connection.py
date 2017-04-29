@@ -153,6 +153,10 @@ class MicroPythonRepl(object):
             self.serial.write(b'\x02')  # exit raw repl mode
         self._thread.stop()
 
+    def interrupt(self):
+        """Interrupt currently running code"""
+        self.serial.write(b'\x03\x03')  # CTRL+C twice
+
     def close(self, interrupt=True):
         """Stop reader thread and close serial port"""
         if interrupt:

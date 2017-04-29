@@ -201,6 +201,7 @@ class MicroPythonKernel(Kernel):
             response = self.repl.exec(code, timeout=self.timeout)
             #~ response += self.repl.exec('if _ is not None: print(_)', timeout=3)
         except IOError as e:
+            self.repl.interrupt()
             status['status'] = 'error'
             response = str(e)
             if not silent:

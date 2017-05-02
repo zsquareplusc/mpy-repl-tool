@@ -1,0 +1,14 @@
+include README.rst
+include LICENSE.txt
+include MANIFEST.in
+include setup.py
+
+include examples/jupyter/MicroPythonTest.ipynb
+
+include documentation/getting_started.rst
+include documentation/conf.py
+include documentation/technical.rst
+include documentation/index.rst
+include documentation/Makefile
+include documentation/commandline.rst
+include documentation/appendix.rst

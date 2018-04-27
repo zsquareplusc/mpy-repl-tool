@@ -121,7 +121,7 @@ class ReplFileTransfer(Operations):
     def open(self, path, flags):
         fileno = self.handle_counter
         self.handle_counter += 1
-        self.files[fileno] = FileBuffer(path, self.file_interface.read_file(path))
+        self.files[fileno] = FileBuffer(path, self.file_interface.read_from_file(path))
         return fileno
 
     def create(self, path, mode, fi=None):

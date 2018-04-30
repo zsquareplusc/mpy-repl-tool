@@ -261,11 +261,11 @@ class MicroPythonRepl(object):
         """
         if not isinstance(contents, (bytes, bytearray)):
             raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
-        blocksize = 128
+        blocksize = 512
         self.exec('_f = open({!r}, "wb")'.format(str(path)))
         for i in range(0, len(contents), blocksize):
             self.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
-        self.exec('_f.close(); del _f;')
+        self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):
         return self.evaluate(

@@ -211,7 +211,9 @@ def command_pull(user, m, args):
     dst_exists = os.path.exists(dst)
     # expand the patterns for our windows users ;-)
     paths = sum((list(m.glob(src)) for src in args.REMOTE), [])
-    if len(paths) > 1:
+    if not paths:
+        raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.REMOTE)))
+    elif len(paths) > 1:
         if dst_exists:
             if not dst_dir:
                 raise ValueError('destination must be a directory')

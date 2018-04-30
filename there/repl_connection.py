@@ -267,11 +267,12 @@ class MicroPythonRepl(object):
         self.exec('_f.close(); del _f;')
 
     def truncate(self, path, length):
+        # MicroPython 1.9.3 has no file.truncate(), but open(...,"ab"); write(b"") seems to work.
         return self.evaluate(
-            '_f = open({!r}, "rw")\n'
-            '_f.seek({})\n'
-            'print(_f.truncate())\n'
-            '_f.close(); del _f; del _b'.format(str(path), int(length)))
+            '_f = open({!r}, "ab")\n'
+            'print(_f.seek({}))\n'
+            '_f.write(b"")\n'
+            '_f.close(); del _f'.format(str(path), int(length)))
 
     def listdir(self, path, fake_attrs=False):
         """

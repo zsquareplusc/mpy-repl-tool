@@ -106,6 +106,8 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 return out[2:].decode('utf-8'), err.decode('utf-8')
 
     def exec(self, string, timeout=3):
+        if not string.endswith('\n'):
+            string += '\n'
         out, err = self.exec_raw(string, timeout)
         if err:
             self._parse_error(err)

@@ -152,7 +152,6 @@ def command_cat(user, m, args):
     Print the contents of a file from the target to stdout.
     """
     user.output_binary(m.read_from_file(args.PATH))
-    user.output_binary(b'\n')
 
 
 def command_rm(user, m, args):

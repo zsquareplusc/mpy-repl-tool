@@ -176,13 +176,13 @@ class MicroPythonRepl(object):
         """
         return self.protocol.exec(*args, **kwargs)
 
-    def evaluate(self, string):
+    def evaluate(self, string, timeout=3):
         """
         Execute a string on the target and return its output parsed as python
         literal. Works for simple constructs such as numbers, lists,
         dictionaries.
         """
-        return ast.literal_eval(self.exec(string))
+        return ast.literal_eval(self.exec(string, timeout=timeout))
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -246,7 +246,7 @@ class MicroPythonRepl(object):
             '    if not _b: break\n'
             '    print(_b, ",")\n'
             'print("]")\n'
-            '_f.close(); del _f; del _b'.format(str(path), blocksize)))
+            '_f.close(); del _f; del _b'.format(str(path), blocksize), timeout=60))
 
     def write_file(self, local_filename, path=None):
         """Copy a file from local to remote filesystem"""
@@ -264,7 +264,7 @@ class MicroPythonRepl(object):
         blocksize = 512
         self.exec('_f = open({!r}, "wb")'.format(str(path)))
         for i in range(0, len(contents), blocksize):
-            self.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
+            self.exec('_f.write({!r})'.format(contents[i:i+blocksize]), timeout=60)
         self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):

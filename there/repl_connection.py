@@ -237,15 +237,16 @@ class MicroPythonRepl(object):
         """Return the contents of a remote file as byte string"""
         # use the fact that Python joins adjacent consecutive strings
         # for the snippet here
+        blocksize = 512
         return b''.join(self.evaluate(
             '_f = open({!r}, "rb")\n'
             'print("[")\n'
             'while True:\n'
-            '    _b = _f.read()\n'
+            '    _b = _f.read({})\n'
             '    if not _b: break\n'
             '    print(_b, ",")\n'
             'print("]")\n'
-            '_f.close(); del _f; del _b'.format(str(path))))
+            '_f.close(); del _f; del _b'.format(str(path), blocksize)))
 
     def write_file(self, local_filename, path=None):
         """Copy a file from local to remote filesystem"""

@@ -264,7 +264,7 @@ class MicroPythonRepl(object):
         blocksize = 512
         self.exec('_f = open({!r}, "wb")'.format(str(path)))
         for i in range(0, len(contents), blocksize):
-            self.exec('_f.write({!r})'.format(contents[i:i+blocksize]), timeout=60)
+            self.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
         self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):

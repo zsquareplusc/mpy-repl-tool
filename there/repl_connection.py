@@ -19,6 +19,7 @@ REPL mode, so the current implementation is not generic for any Python REPL!
 import ast
 import fnmatch
 import queue
+import io
 import os
 import posixpath
 import re
@@ -237,17 +238,25 @@ class MicroPythonRepl(object):
 
     def read_from_file(self, path):
         """Return the contents of a remote file as byte string"""
+        # reading (lines * linesize) must not take more than 1sec and 2K target RAM!
+        lines = max(1, self.serial.baudrate // 9600)
+        linesize = 512
         # use the fact that Python joins adjacent consecutive strings
-        # for the snippet here
-        return b''.join(self.evaluate(
+        # for the snippet here and for the remotely printed lines!
+        self.exec(
             '_f = open({!r}, "rb")\n'
-            'print("[")\n'
-            'while True:\n'
-            '    _b = _f.read()\n'
-            '    if not _b: break\n'
-            '    print(_b, ",")\n'
-            'print("]")\n'
-            '_f.close(); del _f; del _b'.format(str(path))))
+            'def _b():\n'
+            '  print("(")\n'
+            '  for _ in range({}): print(_f.read({}))\n'
+            '  print(")")'.format(str(path), lines, linesize))
+        contents = b''
+        while True:
+            block = self.evaluate('_b()')
+            if not block:
+                break
+            contents += block
+        self.exec('_f.close(); del _f; del _b')
+        return contents
 
     def write_file(self, local_filename, path=None):
         """Copy a file from local to remote filesystem"""
@@ -262,11 +271,17 @@ class MicroPythonRepl(object):
         """
         if not isinstance(contents, (bytes, bytearray)):
             raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
-        blocksize = 128
+        # writing (lines * linesize) must not take more than 1sec and 2K target RAM!
+        lines = max(1, min(16, self.serial.baudrate // 2400))
+        linesize = 128
         self.exec('_f = open({!r}, "wb")'.format(str(path)))
-        for i in range(0, len(contents), blocksize):
-            self.exec('_f.write({!r})'.format(contents[i:i+blocksize]))
-        self.exec('_f.close(); del _f;')
+        with io.BytesIO(contents) as cfile:
+            while True:
+                byte_lines = [repr(cfile.read(linesize)) for _ in range(lines)]
+                self.exec('_f.write(\n' + '\n'.join(byte_lines) + ')')
+                if byte_lines[-1] == repr(b''):
+                    break
+        self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):
         # MicroPython 1.9.3 has no file.truncate(), but open(...,"ab"); write(b"") seems to work.

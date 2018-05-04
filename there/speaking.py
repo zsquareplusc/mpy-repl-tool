@@ -5,8 +5,6 @@
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 """\
-Link To The Past - a backup tool
-
 Functions to make things human readable.
 """
 import stat

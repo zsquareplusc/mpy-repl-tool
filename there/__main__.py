@@ -46,8 +46,8 @@ class UserMessages(object):
         if self.verbosity > 0:
             sys.stderr.write(message)
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def make_connection(user, args, port=None):
     """make a conenction, port overrides args.port"""
     m = repl_connection.MicroPythonRepl(port or args.port,
@@ -60,7 +60,6 @@ def make_connection(user, args, port=None):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 def command_detect(user, m, args):
     """\
     Help finding MicroPython boards.
@@ -334,27 +333,40 @@ def main():
     import argparse
 
     global_options = argparse.ArgumentParser(add_help=False)
-    global_options.add_argument('-p', '--port',
+    global_options.add_argument(
+        '-p', '--port',
         default=os.environ.get('MPY_PORT', 'hwgrep://USB'),
         help='set the serial port')
-    global_options.add_argument('-b', '--baudrate', type=int,
+    global_options.add_argument(
+        '-b', '--baudrate', type=int,
         default=os.environ.get('MPY_BAUDRATE', '115200'),
         help='set the baud rate')
-    global_options.add_argument('-c', '--command',
+    global_options.add_argument(
+        '-c', '--command',
         help='execute given code on target')
-    global_options.add_argument('-i', '--interactive', action='store_true',
+    global_options.add_argument(
+        '-i', '--interactive',
+        action='store_true',
         help='drop to interactive shell at the end')
-    global_options.add_argument('--reset', action='store_true',
+    global_options.add_argument(
+        '--reset',
+        action='store_true',
         help='do a soft reset on the end')
-    global_options.add_argument('-u', '--user',
+    global_options.add_argument(
+        '-u', '--user',
         default=os.environ.get('MPY_USER'),
         help='response to login prompt')
-    global_options.add_argument('-w', '--password',
+    global_options.add_argument(
+        '-w', '--password',
         default=os.environ.get('MPY_PASSWORD'),
         help='response to password prompt')
-    global_options.add_argument('-v', '--verbose', action='count', default=0,
+    global_options.add_argument(
+        '-v', '--verbose',
+        action='count', default=0,
         help='show diagnostic messages, repeat for more')
-    global_options.add_argument('--develop', action='store_true',
+    global_options.add_argument(
+        '--develop',
+        action='store_true',
         help='show tracebacks on errors (development of this tool)')
 
     parser = argparse.ArgumentParser(

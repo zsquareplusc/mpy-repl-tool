@@ -20,6 +20,7 @@ KERNEL_JSON = """\
 }
 """
 
+
 def confirm(message):
     if input(message) not in ['y', 'yes']:
         raise Exception('user reponded "no"')
@@ -54,5 +55,3 @@ if __name__ == '__main__':
     except Exception as e:
         sys.stderr.write('ERROR: {}\n'.format(e))
         sys.exit(1)
-
-

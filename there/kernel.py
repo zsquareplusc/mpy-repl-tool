@@ -76,7 +76,7 @@ class MicroPythonKernel(Kernel):
 
     def meta_info(self):
         if self.repl is not None:
-            self.write('mpy-repl-tool: connected to {0.port}: ' 
+            self.write('mpy-repl-tool: connected to {0.port}: '
                        '{0.baudrate},{0.bytesize},{0.parity},{0.stopbits}\n'.format(self.repl.serial))
         else:
             self.write('mpy-repl-tool: is not connected')
@@ -92,7 +92,7 @@ class MicroPythonKernel(Kernel):
             self.repl = None
         self.repl = repl_connection.MicroPythonRepl(port, baudrate)
         #~ self.repl.protocol.verbose = True
-        self.write('mpy-repl-tool: connected to {0.port}: ' 
+        self.write('mpy-repl-tool: connected to {0.port}: '
                    '{0.baudrate},{0.bytesize},{0.parity},{0.stopbits}\n'.format(self.repl.serial))
         try:
             mpy_info = self.repl.exec('import sys; print(sys.implementation)').strip()
@@ -217,7 +217,6 @@ class MicroPythonKernel(Kernel):
             self.repl.close()
         except:
             pass
-
 
     # -- interface UserMessages
 

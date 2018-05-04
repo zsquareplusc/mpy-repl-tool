@@ -94,7 +94,7 @@ if os.name == 'nt':  # noqa
     else:
         colorama.init()
 
-    MAP_F_KEYS =  {
+    MAP_F_KEYS = {
         ';': '\1bOP',  # F1
         '<': '\1bOQ',  # F2
         '=': '\1bOR',  # F3
@@ -106,7 +106,7 @@ if os.name == 'nt':  # noqa
         'C': '\1b[20~',  # F9
         'D': '\1b[21~',  # F10
     }
-    MAP_SPECIAL_KEYS =  {
+    MAP_SPECIAL_KEYS = {
         'H': '\x1b[A',  # UP
         'P': '\x1b[B',  # DOWN
         'K': '\x1b[D',  # LEFT

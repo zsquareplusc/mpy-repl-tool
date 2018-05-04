@@ -116,7 +116,6 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         return out
 
 
-
 class MicroPythonRepl(object):
     def __init__(self, port='hwgrep://USB', baudrate=115200, user=None, password=None):
         self.serial = None
@@ -345,7 +344,6 @@ class MicroPythonRepl(object):
         if parts:
             yield from self._glob('/', parts)
 
-
     def _glob(self, root, parts):
         """recursive search yielding matches"""
         dirnames = []
@@ -373,6 +371,5 @@ class MicroPythonRepl(object):
             else:
                 yield from ((posixpath.join(root, name), st) for name, st in dirnames)
             yield from ((posixpath.join(root, name), st) for name, st in filenames)
-        except OSError as e:
+        except OSError:
             pass
-

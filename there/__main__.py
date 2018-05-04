@@ -93,7 +93,7 @@ def command_run(user, m, args):
     """
     # XXX set timeout / as argument?
     if args.timeout == 0:
-        raise ValueError('use --interactive insteaf of --timeout=0')
+        raise ValueError('use --interactive instead of --timeout=0')
     user.info('reading to {}\n'.format(args.FILE))
     code = open(args.FILE).read()
     user.info('executing...\n')
@@ -364,56 +364,57 @@ def main():
 
     subparsers = parser.add_subparsers(help='sub-command help')
 
-    parser_detect = subparsers.add_parser('detect', help='help locating a board', parents=[global_options])
+    parser_detect = subparsers.add_parser('detect', help='help locating a board')
     parser_detect.add_argument('-t', '--test', action='store_true', help='open and test each port')
     parser_detect.set_defaults(func=command_detect)
 
-    parser_run = subparsers.add_parser('run', help='execute file contents on target', parents=[global_options])
+    parser_run = subparsers.add_parser('run', help='execute file contents on target')
     parser_run.add_argument('FILE', nargs='?', help='load this file contents')
     parser_run.add_argument('-t', '--timeout', type=float, default='10', help='wait x seconds for completion')
     parser_run.set_defaults(func=command_run, connect=True)
 
-    parser_ls = subparsers.add_parser('ls', help='list files', parents=[global_options])
+    parser_ls = subparsers.add_parser('ls', help='list files')
     parser_ls.add_argument('PATH', nargs='*', default='/', help='paths to list')
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
     parser_ls.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_ls.set_defaults(func=command_ls, connect=True)
 
-    parser_cat = subparsers.add_parser('cat', help='print contents of one file', parents=[global_options])
+    parser_cat = subparsers.add_parser('cat', help='print contents of one file')
     parser_cat.add_argument('PATH', help='filename on target')
     parser_cat.set_defaults(func=command_cat, connect=True)
 
-    parser_pull = subparsers.add_parser('pull', help='file(s) to copy from target', parents=[global_options])
+    parser_pull = subparsers.add_parser('pull', help='file(s) to copy from target')
     parser_pull.add_argument('REMOTE', nargs='+', help='one or more source files/directories')
     parser_pull.add_argument('LOCAL', nargs=1, help='destination directory')
     parser_pull.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_pull.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_pull.set_defaults(func=command_pull, connect=True)
 
-    parser_push = subparsers.add_parser('push', help='file(s) to copy onto target', parents=[global_options])
+    parser_push = subparsers.add_parser('push', help='file(s) to copy onto target')
     parser_push.add_argument('LOCAL', nargs='+', help='one or more source files/directories')
     parser_push.add_argument('REMOTE', nargs=1, help='destination directory')
     parser_push.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_push.set_defaults(func=command_push, connect=True)
 
-    parser_rm = subparsers.add_parser('rm', help='remove files on target', parents=[global_options])
+    parser_rm = subparsers.add_parser('rm', help='remove files on target')
     parser_rm.add_argument('PATH', nargs='+', help='filename on target')
     parser_rm.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
     parser_rm.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
     parser_rm.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 
-    parser_df = subparsers.add_parser('df', help='Show filesytem intformation', parents=[global_options])
+    parser_df = subparsers.add_parser('df', help='Show filesytem information')
     parser_df.add_argument('PATH', nargs='?', default='/', help='remote path')
     parser_df.set_defaults(func=command_df, connect=True)
 
-    parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE', parents=[global_options])
+    parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE')
     parser_mount.add_argument('MOUNTPOINT', help='local mount point, directory must exist')
     parser_mount.add_argument('-e', '--explore', action='store_true', help='auto open file explorer at mount point')
     parser_mount.set_defaults(func=command_mount, connect=True)
 
-    args = parser.parse_args()
+    namespace, remaining_args = global_options.parse_known_args()
+    args = parser.parse_args(remaining_args, namespace=namespace)
 
     user = UserMessages(args.verbose)
 

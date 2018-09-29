@@ -259,7 +259,7 @@ def command_push(user, m, args):
         dst_dir = False
         dst_exists = False
     # expand the patterns for our windows users ;-)
-    paths = sum((glob.glob(src) for src in args.LOCAL), [])
+    paths = sum((glob.glob(src, recursive=args.recursive) for src in args.LOCAL), [])
     if len(paths) > 1:
         if not dst_dir:
             raise ValueError('destination must be a directory')

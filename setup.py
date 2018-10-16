@@ -11,7 +11,8 @@ except ImportError:
 
 setup(
     name="mpy-repl-tool",
-    #~ description="",
+    description='Communicate and transfer files from and to MicroyPython boards via REPL',
+    long_description=open('README.rst').read(),
     version='0.6',
     author="Chris Liechti",
     author_email="cliechti@gmx.net",

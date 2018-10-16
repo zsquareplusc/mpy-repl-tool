@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# (C) 2016 Chris Liechti <cliechti@gmx.net>
+# (C) 2016-2018 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 
@@ -12,7 +12,7 @@ except ImportError:
 setup(
     name="mpy-repl-tool",
     #~ description="",
-    version='0.5',
+    version='0.6',
     author="Chris Liechti",
     author_email="cliechti@gmx.net",
     url="https://github.com/zsquareplusc/mpy-repl-tool",

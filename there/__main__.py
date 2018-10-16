@@ -136,7 +136,7 @@ def command_ls(user, m, args):
             if args.recursive:
                 if st.st_mode & stat.S_IFDIR:
                     for dirpath, dir_stat, file_stat in m.walk(path):
-                        print_list(user, file_stat + dir_stat, path)
+                        print_list(user, file_stat + dir_stat, dirpath)
                 else:
                     print_list(user, [(path, st)])
             else:

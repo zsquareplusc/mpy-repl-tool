@@ -17,6 +17,7 @@ Note: The protocol uses MicroPython specific conrol codes to switch to a raw
 REPL mode, so the current implementation is not generic for any Python REPL!
 """
 import ast
+import binascii
 import fnmatch
 import queue
 import io
@@ -239,21 +240,24 @@ class MicroPythonRepl(object):
         """Return the contents of a remote file as byte string"""
         # reading (lines * linesize) must not take more than 1sec and 2K target RAM!
         lines = max(1, self.serial.baudrate // 9600)
-        linesize = 512
+        linesize = 510  # must be multiple of 3 to avoid padding in base64
         # use the fact that Python joins adjacent consecutive strings
         # for the snippet here and for the remotely printed lines!
         self.exec(
-            '_f = open({!r}, "rb")\n'
+            'import ubinascii; _f = open({!r}, "rb")\n'
             'def _b():\n'
-            '  print("(")\n'
-            '  for _ in range({}): print(_f.read({}))\n'
+            '  print("(b\'\'")\n'
+            '  for _ in range({}):\n'
+            '    block = _f.read({})\n'
+            '    if not block: break\n'
+            '    print(ubinascii.b2a_base64(block)[:-1])\n'
             '  print(")")'.format(str(path), lines, linesize))
         contents = b''
         while True:
             block = self.evaluate('_b()')
             if not block:
                 break
-            contents += block
+            contents += binascii.a2b_base64(block)
         self.exec('_f.close(); del _f; del _b')
         return contents
 
@@ -272,14 +276,17 @@ class MicroPythonRepl(object):
             raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
         # writing (lines * linesize) must not take more than 1sec and 2K target RAM!
         lines = max(1, min(16, self.serial.baudrate // 2400))
-        linesize = 128
-        self.exec('_f = open({!r}, "wb")'.format(str(path)))
+        linesize = 72
+        # linesize = 128
+        self.exec('import ubinascii; _f = open({!r}, "wb")'.format(str(path)))
         with io.BytesIO(contents) as cfile:
             while True:
-                byte_lines = [repr(cfile.read(linesize)) for _ in range(lines)]
-                self.exec('_f.write(\n' + '\n'.join(byte_lines) + ')')
-                if byte_lines[-1] == repr(b''):
+                block = cfile.read(linesize * lines)
+                if not block:
                     break
+                block_base64 = binascii.b2a_base64(block)
+                byte_lines = [repr(block_base64[i:i + linesize]) for i in range(0, len(block_base64), linesize)]
+                self.exec('_f.write(ubinascii.a2b_base64(\n' + '\n'.join(byte_lines) + '))')
         self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):

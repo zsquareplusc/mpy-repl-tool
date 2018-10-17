@@ -278,6 +278,21 @@ def command_pull(user, m, args):
                     m.read_file(path, dst)
 
 
+def push_file(user, m, local_path, remote_path, dry_run):
+    """\
+    copy a file to the target, if it is not already up to date. check with
+    hash if copy is needed
+    """
+    if not dry_run:
+        if m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
+            user.info('{} -> {}\n'.format(local_path, remote_path))
+            m.write_file(local_path, remote_path)
+        else:
+            user.info('{}: already up to date\n'.format(remote_path))
+    else:
+        user.info('dry run: {} -> {}\n'.format(local_path, remote_path))
+
+
 def command_push(user, m, args):
     """\
     Copy a file from here to there.
@@ -293,11 +308,11 @@ def command_push(user, m, args):
     paths = sum((glob.glob(src) for src in args.LOCAL), [])
     if not paths:
         raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.LOCAL)))
-    if len(paths) > 1:
+    elif len(paths) > 1:
         if not dst_dir:
-            raise ValueError('destination must be a directory')
+            raise ValueError('destination must be a directory: {}'.format(dst))
         if not dst_exists:
-            raise ValueError('destination directory must exist')
+            raise ValueError('destination directory must exist: {}'.format(dst))
     for path in paths:
         if os.path.isdir(path):
             if os.path.basename(path) in EXCLUDE_DIRS:
@@ -314,23 +329,14 @@ def command_push(user, m, args):
                         except ValueError:
                             pass
                     for filename in filenames:
-                        user.info('{} -> {}\n'.format(
-                                  os.path.join(dirpath, filename),
-                                  posixpath.join(dst, relpath, filename)))
-                        if not args.dry_run:
-                            m.write_file(os.path.join(dirpath, filename),
-                                         posixpath.join(dst, relpath, filename))
+                        push_file(user, m, os.path.join(dirpath, filename), posixpath.join(dst, relpath, filename), args.dry_run)
             else:
-                user.notice('skiping directory {}\n'.format(path))
+                user.notice('skiping directory: {}\n'.format(path))
         else:
             if dst_dir:
-                user.info('{} -> {}\n'.format(path, posixpath.join(dst, os.path.basename(path))))
-                if not args.dry_run:
-                    m.write_file(path, posixpath.join(dst, os.path.basename(path)))
+                push_file(user, m, path, posixpath.join(dst, os.path.basename(path)), args.dry_run)
             else:
-                user.info('{} -> {}\n'.format(path, dst))
-                if not args.dry_run:
-                    m.write_file(path, dst)
+                push_file(user, m, path, dst, args.dry_run)
 
 
 def command_df(user, m, args):

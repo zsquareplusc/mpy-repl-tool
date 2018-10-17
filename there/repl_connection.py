@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # encoding: utf-8
 #
-# (C) 2016 Chris Liechti <cliechti@gmx.net>
+# (C) 2016-2018 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 """
@@ -264,15 +264,20 @@ class MicroPythonRepl(object):
 
     def checksum_remote_file(self, path):
         """Return a checksum over the contents of a remote file"""
-        self.exec(
-            'import uhashlib; _h = uhashlib.sha256()\n'
-            '_f = open({!r}, "rb")\n'
-            'while True:\n'
-            '    block = _f.read(512)\n'
-            '    if not block: break\n'
-            '    _h.update(block)\n'.format(str(path)))
-        hash_value = self.evaluate('print(_h.digest())')
-        self.exec('_f.close(); del _f; del _h')
+        try:
+            self.exec(
+                'import uhashlib; _h = uhashlib.sha256()\n'
+                '_f = open({!r}, "rb")\n'
+                'while True:\n'
+                '    block = _f.read(512)\n'
+                '    if not block: break\n'
+                '    _h.update(block)\n'
+                '_f.close(); del _f\n'.format(str(path)))
+        except (FileNotFoundError, OSError):
+            hash_value = b''
+        else:
+            hash_value = self.evaluate('print(_h.digest())')
+        self.exec('del _h')
         return hash_value
 
     def checksum_local_file(self, path):

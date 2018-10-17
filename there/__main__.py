@@ -1,9 +1,10 @@
 #! /usr/bin/env python3
 # encoding: utf-8
 #
-# (C) 2016 Chris Liechti <cliechti@gmx.net>
+# (C) 2016-2018 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
+import binascii
 import posixpath
 import os
 import sys
@@ -49,7 +50,7 @@ class UserMessages(object):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def make_connection(user, args, port=None):
-    """make a conenction, port overrides args.port"""
+    """make a connection, port overrides args.port"""
     m = repl_connection.MicroPythonRepl(port or args.port,
                                         args.baudrate,
                                         user=args.user,
@@ -131,19 +132,21 @@ def command_ls(user, m, args):
         print_list = print_long_list
     else:
         print_list = print_short_list
-    for pattern in args.PATH:
-        for path, st in m.glob(pattern):
-            if args.recursive:
-                if st.st_mode & stat.S_IFDIR:
-                    for dirpath, dir_stat, file_stat in m.walk(path):
-                        print_list(user, file_stat + dir_stat, dirpath)
-                else:
-                    print_list(user, [(path, st)])
+    paths = sum((list(m.glob(src)) for src in args.PATH), [])
+    if not paths:
+        raise FileNotFoundError(2, 'cannot find: {}'.format(' '.join(args.PATH)))
+    for path, st in paths:
+        if args.recursive:
+            if st.st_mode & stat.S_IFDIR:
+                for dirpath, dir_stat, file_stat in m.walk(path):
+                    print_list(user, file_stat + dir_stat, dirpath)
             else:
-                if st.st_mode & stat.S_IFDIR:
-                    print_list(user, m.listdir(path), path)
-                else:
-                    print_list(user, [(path, st)])
+                print_list(user, [(path, st)])
+        else:
+            if st.st_mode & stat.S_IFDIR:
+                print_list(user, m.listdir(path), path)
+            else:
+                print_list(user, [(path, st)])
 
 
 def print_hash(user, path, st, hash_value):
@@ -160,21 +163,23 @@ def command_hash(user, m, args):
     """\
     Get hash of files on the targets file system.
     """
-    for pattern in args.PATH:
-        for path, st in m.glob(pattern):
-            if args.recursive:
-                if st.st_mode & stat.S_IFDIR:
-                    for dirpath, dir_stat, file_stat in m.walk(path):
-                        for filename, st in file_stat:
-                            path = posixpath.join(dirpath, filename)
-                            print_hash(user, path, st, m.checksum_remote_file(path))
-                else:
-                    print_hash(user, path, st, m.checksum_remote_file(path))
+    paths = sum((list(m.glob(src)) for src in args.PATH), [])
+    if not paths:
+        raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.PATH)))
+    for path, st in paths:
+        if args.recursive:
+            if st.st_mode & stat.S_IFDIR:
+                for dirpath, dir_stat, file_stat in m.walk(path):
+                    for filename, st in file_stat:
+                        path = posixpath.join(dirpath, filename)
+                        print_hash(user, path, st, m.checksum_remote_file(path))
             else:
-                if st.st_mode & stat.S_IFDIR:
-                    pass
-                else:
-                    print_hash(user, path, st, m.checksum_remote_file(path))
+                print_hash(user, path, st, m.checksum_remote_file(path))
+        else:
+            if st.st_mode & stat.S_IFDIR:
+                pass
+            else:
+                print_hash(user, path, st, m.checksum_remote_file(path))
 
 
 def command_cat(user, m, args):
@@ -238,14 +243,14 @@ def command_pull(user, m, args):
     dst = args.LOCAL[0]
     dst_dir = os.path.isdir(dst)
     dst_exists = os.path.exists(dst)
-    # expand the patterns for our windows users ;-)
+    # expand the patterns
     paths = sum((list(m.glob(src)) for src in args.REMOTE), [])
     if not paths:
         raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.REMOTE)))
     elif len(paths) > 1:
         if dst_exists:
             if not dst_dir:
-                raise ValueError('destination must be a directory')
+                raise ValueError('destination must be a directory: {}'.format(dst))
         else:
             if not args.dry_run:
                 os.makedirs(dst, exist_ok=True)
@@ -266,7 +271,7 @@ def command_pull(user, m, args):
                             m.read_file(posixpath.join(dirpath, filename),
                                         os.path.join(dst, relpath, filename))
             else:
-                user.notice('skiping directory {}\n'.format(path))
+                user.notice('skiping directory: {}\n'.format(path))
         else:
             if dst_dir:
                 user.info('{} -> {}\n'.format(path, os.path.join(dst, posixpath.basename(path))))

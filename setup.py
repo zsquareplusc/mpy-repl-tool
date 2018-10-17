@@ -13,7 +13,7 @@ setup(
     name="mpy-repl-tool",
     description='Communicate and transfer files from and to MicroyPython boards via REPL',
     long_description=open('README.rst').read(),
-    version='0.6',
+    version='0.7',
     author="Chris Liechti",
     author_email="cliechti@gmx.net",
     url="https://github.com/zsquareplusc/mpy-repl-tool",

@@ -146,6 +146,37 @@ def command_ls(user, m, args):
                     print_list(user, [(path, st)])
 
 
+def print_hash(user, path, st, hash_value):
+    """output function hashed file info"""
+    user.output_text('{} {:>7} {} {}\n'.format(
+        binascii.hexlify(hash_value).decode('ascii'),
+        nice_bytes(st.st_size),
+        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime)),
+        escaped(path)
+        ))
+
+
+def command_hash(user, m, args):
+    """\
+    Get hash of files on the targets file system.
+    """
+    for pattern in args.PATH:
+        for path, st in m.glob(pattern):
+            if args.recursive:
+                if st.st_mode & stat.S_IFDIR:
+                    for dirpath, dir_stat, file_stat in m.walk(path):
+                        for filename, st in file_stat:
+                            path = posixpath.join(dirpath, filename)
+                            print_hash(user, path, st, m.checksum_remote_file(path))
+                else:
+                    print_hash(user, path, st, m.checksum_remote_file(path))
+            else:
+                if st.st_mode & stat.S_IFDIR:
+                    pass
+                else:
+                    print_hash(user, path, st, m.checksum_remote_file(path))
+
+
 def command_cat(user, m, args):
     """\
     Print the contents of a file from the target to stdout.
@@ -392,6 +423,11 @@ def main():
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
     parser_ls.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_ls.set_defaults(func=command_ls, connect=True)
+
+    parser_hash = subparsers.add_parser('hash', help='hash files')
+    parser_hash.add_argument('PATH', nargs='*', default='/', help='paths to list')
+    parser_hash.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
+    parser_hash.set_defaults(func=command_hash, connect=True)
 
     parser_cat = subparsers.add_parser('cat', help='print contents of one file')
     parser_cat.add_argument('PATH', help='filename on target')

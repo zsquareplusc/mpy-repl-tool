@@ -21,6 +21,7 @@ import binascii
 import fnmatch
 import queue
 import io
+import hashlib
 import os
 import posixpath
 import re
@@ -260,6 +261,30 @@ class MicroPythonRepl(object):
             contents += binascii.a2b_base64(block)
         self.exec('_f.close(); del _f; del _b')
         return contents
+
+    def checksum_remote_file(self, path):
+        """Return a checksum over the contents of a remote file"""
+        self.exec(
+            'import uhashlib; _h = uhashlib.sha256()\n'
+            '_f = open({!r}, "rb")\n'
+            'while True:\n'
+            '    block = _f.read(512)\n'
+            '    if not block: break\n'
+            '    _h.update(block)\n'.format(str(path)))
+        hash_value = self.evaluate('print(_h.digest())')
+        self.exec('_f.close(); del _f; del _h')
+        return hash_value
+
+    def checksum_local_file(self, path):
+        """Return a checksum over the contents of a file"""
+        _h = hashlib.sha256()
+        with open(path, 'rb') as f:
+            while True:
+                block = f.read(512)
+                if not block:
+                    break
+                _h.update(block)
+        return _h.digest()
 
     def write_file(self, local_filename, path=None):
         """Copy a file from local to remote filesystem"""

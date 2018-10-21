@@ -13,7 +13,7 @@ unlike their counterparts on the host, return tuples of names and stat
 information, not just names. This done to make the data transfer more efficient
 as most higher level operations will need stat info.
 
-Note: The protocol uses MicroPython specific conrol codes to switch to a raw
+Note: The protocol uses MicroPython specific control codes to switch to a raw
 REPL mode, so the current implementation is not generic for any Python REPL!
 """
 import ast
@@ -33,7 +33,7 @@ import serial
 import serial.threaded
 
 # match "OSError: [Errno 2] ENOENT" and "OSError: 2"
-re_oserror = re.compile('OSError: (\[Errno )?(\d+)(\] )?')
+re_oserror = re.compile(r'OSError: (\[Errno )?(\d+)(\] )?')
 
 
 def prefix(text, prefix):

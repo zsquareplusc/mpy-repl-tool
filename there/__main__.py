@@ -393,6 +393,10 @@ def main():
         action='store_true',
         help='drop to interactive shell at the end')
     global_options.add_argument(
+        '--reset-on-connect',
+        action='store_true',
+        help='do a soft reset as first operation (main.py will not me executed)')
+    global_options.add_argument(
         '--reset',
         action='store_true',
         help='do a soft reset on the end')
@@ -479,7 +483,7 @@ def main():
 
     user = UserMessages(args.verbose)
 
-    if args.command or args.interactive:
+    if args.command or args.interactive or args.reset:
         args.connect = True
 
     if args.connect:
@@ -489,6 +493,11 @@ def main():
 
     exitcode = 0
     try:
+        if m is not None:
+            if args.reset_on_connect:
+                m.soft_reset(run_main=False)
+            else:
+                m.exec(' ')  # run an empty line to "sync"
         if args.func:
             args.func(user, m, args)
         if args.command:
@@ -497,7 +506,7 @@ def main():
             else:
                 user.output_text(m.exec(args.command))
         if args.reset:
-            m.soft_reset()
+            m.soft_reset(run_main=True)
     except Exception as e:
         if args.develop:
             raise

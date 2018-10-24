@@ -80,13 +80,15 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 elif err_num:
                     raise OSError(err_num, 'OSError')
 
-    def exec_raw(self, string, timeout=3):
+    def exec_raw(self, string, timeout=5):
         """Exec code, returning (stdout, stderr)"""
         if self.verbose:
             sys.stderr.write(prefix(string, 'I'))
         self.transport.write(string.encode('utf-8'))
-        if self.response.qsize():
-            self.response.get_nowait()
+        # self.buffer.clear()
+        while self.response.qsize():
+            garbage = self.response.get_nowait()
+            sys.stderr.write(prefix(garbage, 'ignored'))
         self.transport.write(b'\x04')
         if timeout != 0:
             try:
@@ -100,7 +102,8 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 raise IOError('timeout')
             else:
                 out, err = data.split(b'\x04')
-                if not out.startswith(b'OK'):
+                # if not out.startswith(b'OK'):
+                if b'OK' not in out:
                     raise IOError('data was not accepted: {}: {}'.format(out, err))
                 if self.verbose:
                     sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O'))

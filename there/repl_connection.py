@@ -190,8 +190,15 @@ class MicroPythonRepl(object):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def soft_reset(self):
-        self.protocol.transport.write(b'\x03\x04')
+    def soft_reset(self, run_main=True):
+        if run_main:
+            # exit raw REPL for a reset that runs main.py
+            self.protocol.transport.write(b'\x03\x03\x02\x04\x01')
+        else:
+            # if raw REPL is active, then MicroPython will not execute main.py
+            self.protocol.transport.write(b'\x03\x03\x04')
+            # execute empty line to get a new prompt and consume all the outputs form the soft reset
+            self.exec(' ')
         # XXX read startup message
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

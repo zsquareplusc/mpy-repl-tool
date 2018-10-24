@@ -6,22 +6,25 @@ Overview
 ========
 ::
 
-    usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-u USER]
-                 [-w PASSWORD] [-v] [--develop]
-                 {detect,run,ls,cat,pull,push,rm,mount} ...
+    usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
+                      [--reset-on-connect] [--reset] [-u USER] [-w PASSWORD] [-v]
+                      [--develop]
+                      {detect,run,ls,hash,cat,pull,push,rm,df,mount} ...
 
     Do stuff via the MicroPython REPL
 
     positional arguments:
-      {detect,run,ls,cat,pull,push,rm,mount}
+      {detect,run,ls,hash,cat,pull,push,rm,df,mount}
                             sub-command help
         detect              help locating a board
         run                 execute file contents on target
         ls                  list files
+        hash                hash files
         cat                 print contents of one file
         pull                file(s) to copy from target
         push                file(s) to copy onto target
         rm                  remove files on target
+        df                  Show filesytem information
         mount               Make target files accessible via FUSE
 
     optional arguments:
@@ -32,6 +35,8 @@ Overview
       -c COMMAND, --command COMMAND
                             execute given code on target
       -i, --interactive     drop to interactive shell at the end
+      --reset-on-connect    do a soft reset as first operation (main.py will not
+                            me executed)
       --reset               do a soft reset on the end
       -u USER, --user USER  response to login prompt
       -w PASSWORD, --password PASSWORD
@@ -45,10 +50,11 @@ between PC and target.
 
 The order of operation is as follows:
 
-1) execute action
-2) run statements that are given with ``--command``
-3) execute --reset
-4) start miniterm if ``--interactive`` is given
+1) execute ``--reset-on-connect``
+2) execute action (``run``, ``push`` etc.)
+3) run statements that are given with ``--command``
+4) execute --reset
+5) start miniterm if ``--interactive`` is given
 
 All of these steps can be combined or used on their own.
 
@@ -63,7 +69,8 @@ be used to find the comport and use ``--port`` option or environment
 variable.
 
 If ``--user`` and ``--password`` are given, it waits for a login and password
-prompt after connecting. This is useful when connecting to a WiPy via telnet.
+prompt after connecting. This is useful when connecting to e.g. a WiPy via
+telnet.
 
 
 Actions
@@ -80,22 +87,10 @@ quite a bit slower that just listing the ports.
 
 ::
 
-    usage: there detect [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                        [-u USER] [-w PASSWORD] [-v] [--develop] [-t]
+    usage: there detect [-h] [-t]
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -t, --test            open and test each port
 
 
@@ -110,26 +105,13 @@ miniterm is started immediately.
 
 ::
 
-    usage: there run [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                     [-u USER] [-w PASSWORD] [-v] [--develop] [-t TIMEOUT]
-                     [FILE]
+    usage: there run [-h] [-t TIMEOUT] [FILE]
 
     positional arguments:
       FILE                  load this file contents
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -t TIMEOUT, --timeout TIMEOUT
                             wait x seconds for completion
 
@@ -143,26 +125,13 @@ such as the file size.
 
 ::
 
-    usage: there ls [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-u USER]
-                    [-w PASSWORD] [-v] [--develop] [-l] [-r]
-                    [PATH [PATH ...]]
+    usage: there ls [-h] [-l] [-r] [PATH [PATH ...]]
 
     positional arguments:
       PATH                  paths to list
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -l, --long            show more info
       -r, --recursive       list contents of directories
 
@@ -177,25 +146,13 @@ Loads a file from the target and prints it contents to stdout (in binary mode).
 
 ::
 
-    usage: there cat [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                     [-u USER] [-w PASSWORD] [-v] [--develop]
-                     PATH
+    usage: there cat [-h] PATH
 
     positional arguments:
       PATH                  filename on target
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
 
 
 ``rm``
@@ -204,26 +161,13 @@ Remove files and/or directories on the target.
 
 ::
 
-    usage: there rm [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-u USER]
-                    [-w PASSWORD] [-v] [--develop] [-f] [-r] [--dry-run]
-                    PATH [PATH ...]
+    usage: there rm [-h] [-f] [-r] [--dry-run] PATH [PATH ...]
 
     positional arguments:
       PATH                  filename on target
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -f, --force           delete anyway / no error if not existing
       -r, --recursive       remove directories recursively
       --dry-run             do not actually create anything on target
@@ -240,10 +184,7 @@ wildcards to avoid local expansion (e.g.  ``/\*.py`` or with quotes
 
 ::
 
-    usage: there pull [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                      [-u USER] [-w PASSWORD] [-v] [--develop] [-r]
-                      [--dry-run]
-                      REMOTE [REMOTE ...] LOCAL
+    usage: there pull [-h] [-r] [--dry-run] REMOTE [REMOTE ...] LOCAL
 
     positional arguments:
       REMOTE                one or more source files/directories
@@ -251,17 +192,6 @@ wildcards to avoid local expansion (e.g.  ``/\*.py`` or with quotes
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -r, --recursive       copy recursively
       --dry-run             do not actually create anything on target
 
@@ -277,10 +207,7 @@ wildcards, e.g. ``*.py``.
 
 ::
 
-    usage: there push [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                      [-u USER] [-w PASSWORD] [-v] [--develop] [-r]
-                      [--dry-run]
-                      LOCAL [LOCAL ...] REMOTE
+    usage: there push [-h] [-r] [--dry-run] LOCAL [LOCAL ...] REMOTE
 
     positional arguments:
       LOCAL                 one or more source files/directories
@@ -288,17 +215,6 @@ wildcards, e.g. ``*.py``.
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -r, --recursive       copy recursively
       --dry-run             do not actually create anything on target
 
@@ -309,32 +225,35 @@ The action can also be combined with ``--command`` and
 output.
 
 
+``hash``
+--------
+Generate and print a SHA256 hash for each file given.
+
+::
+
+    usage: there hash [-h] [-r] [PATH [PATH ...]]
+
+    positional arguments:
+      PATH             paths to list
+
+    optional arguments:
+      -h, --help       show this help message and exit
+      -r, --recursive  list contents of directories
+
+
 ``mount``
 ---------
 Mount the target as file system via FUSE.
 
 ::
 
-    usage: there mount [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                       [-u USER] [-w PASSWORD] [-v] [--develop] [-e]
-                       MOUNTPOINT
+    usage: there mount [-h] [-e] MOUNTPOINT
 
     positional arguments:
       MOUNTPOINT            local mount point, directory must exist
 
     optional arguments:
       -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
       -e, --explore         auto open file explorer at mount point
 
 A virtual file system is created and attached to the given directory. It

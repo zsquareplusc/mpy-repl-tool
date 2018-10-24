@@ -27,21 +27,25 @@ Usage
 
 Here is the output of ``python3 -m there --help``::
 
-    usage: __main__.py [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i] [-v]
-                       detect,run,ls,cat,pull,push,rm,mount} ...
+    usage: __main__.py [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
+                      [--reset-on-connect] [--reset] [-u USER] [-w PASSWORD] [-v]
+                      [--develop]
+                      {detect,run,ls,hash,cat,pull,push,rm,df,mount} ...
 
     Do stuff via the MicroPython REPL
 
     positional arguments:
-      {detect,run,ls,cat,put,rm,mount}
+      {detect,run,ls,hash,cat,pull,push,rm,df,mount}
                             sub-command help
         detect              help locating a board
         run                 execute file contents on target
         ls                  list files
-        cat                 print content of one file
+        hash                hash files
+        cat                 print contents of one file
         pull                file(s) to copy from target
         push                file(s) to copy onto target
         rm                  remove files on target
+        df                  Show filesytem information
         mount               Make target files accessible via FUSE
 
     optional arguments:
@@ -52,6 +56,9 @@ Here is the output of ``python3 -m there --help``::
       -c COMMAND, --command COMMAND
                             execute given code on target
       -i, --interactive     drop to interactive shell at the end
+      --reset-on-connect    do a soft reset as first operation (main.py will not
+                            me executed)
+      --reset               do a soft reset on the end
       -u USER, --user USER  response to login prompt
       -w PASSWORD, --password PASSWORD
                             response to password prompt

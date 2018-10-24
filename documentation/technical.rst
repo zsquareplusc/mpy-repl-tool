@@ -28,15 +28,15 @@ execution:
         The executed code should use ``print()`` to construct the answer, e.g.
         ``print(repr(obj))``. It is also possible to use multiple print statements
         to construct the response, e.g. to create a list with many entries. As
-        printed lines are transfered immediately and the PC caches the data, it
+        printed lines are transferred immediately and the PC caches the data, it
         is possible to create very large responses.
 
         If the target raises an exception, this function will raise an
         exception too. The type depends on the exception. An ``IOError`` is
-        rasied by default, unless the Traceback can be parsed. If an
-        ``OSError`` is recognized it or one of the sublcasses
+        raised by default, unless the Traceback can be parsed. If an
+        ``OSError`` is recognized it or one of the subclasses
         (``FileNotFoundError``, ``PermissionError``,  ``FileExistsError``),
-        then that one will be rised instead.
+        then that one will be raised instead.
 
 
     .. method:: evaluate(code)
@@ -135,6 +135,23 @@ execution:
 
         Write contents (expected to be bytes) to a file on the target.
 
+    .. method:: checksum_remote_file(path)
+
+        :param str path: Absolute path on target.
+        :returns: hash over file contents
+        :rtype: bytes
+
+        Calculate a SHA256 over the file contents and return the digest.
+
+    .. method:: checksum_local_file(local_filename)
+
+        :param str local_filename: Path to local file
+        :returns: hash over file contents
+        :rtype: bytes
+
+        Calculate a SHA256 over the file contents and return the digest.
+
+
     .. method:: listdir(path, fake_attrs=False)
 
         :param str path: Absolute path on target.
@@ -198,7 +215,7 @@ escape sequences.
 
 .. note::
 
-    An alternative to ``colorama`` is to get ``ansy.sys`` working.
+    An alternative to ``colorama`` is to get ``ansi.sys`` working.
 
 
 .. _Protocol: https://pyserial.readthedocs.io/en/latest/pyserial_api.html#serial.threaded.Protocol

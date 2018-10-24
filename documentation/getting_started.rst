@@ -32,6 +32,7 @@ The following examples automatically pick the first USB-Serial adapter to
 communicate, add a ``-p COMxy`` option or set the ``MPY_PORT`` environment
 variable to choose a different one.
 
+
 Usage examples
 ==============
 ::
@@ -50,6 +51,9 @@ Usage examples
 
     # copy multiple files from computer to target
     python3 -m there push *.py /flash
+
+    # copy main.py and library directory from computer to target
+    python3 -m there push -r lib main.py /flash
 
     # backup all the files on the pc
     python3 -m there pull -r \* backup

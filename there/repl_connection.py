@@ -37,7 +37,7 @@ re_oserror = re.compile(r'OSError: (\[Errno )?(\d+)(\] )?')
 
 
 def prefix(text, prefix):
-    return ''.join('{}{}\n'.format(prefix, line) for line in text.splitlines())
+    return ''.join('{} {}: {!r}\n'.format(prefix, n, line) for n, line in enumerate(text.splitlines(), 1))
 
 
 class MicroPythonReplProtocol(serial.threaded.Packetizer):
@@ -83,7 +83,7 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
     def exec_raw(self, string, timeout=3):
         """Exec code, returning (stdout, stderr)"""
         if self.verbose:
-            sys.stderr.write(prefix(string, 'I: '))
+            sys.stderr.write(prefix(string, 'I'))
         self.transport.write(string.encode('utf-8'))
         if self.response.qsize():
             self.response.get_nowait()
@@ -103,9 +103,9 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 if not out.startswith(b'OK'):
                     raise IOError('data was not accepted: {}: {}'.format(out, err))
                 if self.verbose:
-                    sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O: '))
+                    sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O'))
                     if err:
-                        sys.stderr.write(prefix(err.decode('utf-8'), 'E: '))
+                        sys.stderr.write(prefix(err.decode('utf-8'), 'E'))
                 return out[2:].decode('utf-8'), err.decode('utf-8')
 
     def exec(self, string, timeout=3):

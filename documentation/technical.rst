@@ -186,6 +186,15 @@ execution:
 
         :mod:`fnmatch` is used to evalute the pattern.
 
+    .. method:: soft_reset(run_main=True)
+
+        :param bool run_main: select if program should be started
+
+        Execute a soft reset of the target. if ``run_main`` is False, then
+        the REPL connection will be maintained and ``main.py`` will not be
+        executed. Otherwise a regular soft reset is made and ``main.py``
+        is executed.
+
 
 Mount Action
 ============

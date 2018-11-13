@@ -96,7 +96,8 @@ def command_run(user, m, args):
     if args.timeout == 0:
         raise ValueError('use --interactive instead of --timeout=0')
     user.info('reading to {}\n'.format(args.FILE))
-    code = open(args.FILE).read()
+    with open(args.FILE) as f:
+        code = f.read()
     user.info('executing...\n')
     if args.interactive:
         m.exec(code, timeout=0)
@@ -190,6 +191,18 @@ def command_cat(user, m, args):
     user.output_binary(m.read_from_file(args.PATH))
 
 
+def remove_remote_file(user, m, remote_path, dry_run):
+    user.info('rm {}\n'.format(remote_path))
+    if not dry_run:
+        m.remove(remote_path)
+
+
+def remove_remote_directory(user, m, remote_path, dry_run):
+    user.info('rmdir {}\n'.format(remote_path))
+    if not dry_run:
+        m.rmdir(remote_path)
+
+
 def command_rm(user, m, args):
     """\
     Remove files on target.
@@ -203,27 +216,20 @@ def command_rm(user, m, args):
                 if args.recursive:
                     for dirpath, dir_stat, file_stat in m.walk(path, topdown=False):
                         for name, st in dir_stat:
-                            user.info('rmdir {}/{}\n'.format(dirpath, name))
-                            if not args.dry_run:
-                                m.rmdir(posixpath.join(dirpath, name))
+                            remove_remote_directory(user, m, posixpath.join(dirpath, name), args.dry_run)
                         for name, st in file_stat:
-                            user.info('rm {}/{}\n'.format(dirpath, name))
-                            if not args.dry_run:
-                                m.remove(posixpath.join(dirpath, name))
-                    user.info('rmdir {}\n'.format(dirpath))
-                    if not args.dry_run:
-                        m.rmdir(dirpath)
+                            remove_remote_file(user, m, posixpath.join(dirpath, name), args.dry_run)
+                    remove_remote_directory(user, m, dirpath, args.dry_run)
                 else:
-                    user.info('rmdir {}/\n'.format(path))
-                    if not args.dry_run:
-                        m.rmdir(path)
+                    remove_remote_directory(user, m, path, args.dry_run)
             else:
-                user.info('rm {}\n'.format(path))
-                if not args.dry_run:
-                    m.remove(path)
+                remove_remote_file(user, m, path, args.dry_run)
 
 
-EXCLUDE_DIRS = ['__pycache__']
+EXCLUDE_DIRS = [
+    '__pycache__',
+    '.git',
+]
 
 
 def ensure_dir(m, path):
@@ -235,6 +241,12 @@ def ensure_dir(m, path):
     else:
         if (st.st_mode & stat.S_IFDIR) == 0:
             raise FileExistsError('there is a file in the way: {}'.format(path))
+
+
+def copy_remote_file(user, m, remote_path, local_path, dry_run):
+    user.info('{} -> {}\n'.format(remote_path, local_path))
+    if not dry_run:
+        m.read_file(remote_path, local_path)
 
 
 def command_pull(user, m, args):
@@ -265,23 +277,18 @@ def command_pull(user, m, args):
                     if not args.dry_run:
                         os.makedirs(os.path.join(dst, relpath), exist_ok=True)
                     for filename, st in file_stat:
-                        user.info('{} -> {}\n'.format(
-                                  posixpath.join(dirpath, filename),
-                                  os.path.join(dst, relpath, filename)))
-                        if not args.dry_run:
-                            m.read_file(posixpath.join(dirpath, filename),
-                                        os.path.join(dst, relpath, filename))
+                        copy_remote_file(
+                            user, m,
+                            posixpath.join(dirpath, filename),
+                            os.path.join(dst, relpath, filename),
+                            args.dry_run)
             else:
                 user.notice('skiping directory: {}\n'.format(path))
         else:
             if dst_dir:
-                user.info('{} -> {}\n'.format(path, os.path.join(dst, posixpath.basename(path))))
-                if not args.dry_run:
-                    m.read_file(path, os.path.join(dst, posixpath.basename(path)))
+                copy_remote_file(user, m, path, os.path.join(dst, posixpath.basename(path)), args.dry_run)
             else:
-                user.info('{} -> {}\n'.format(path, dst))
-                if not args.dry_run:
-                    m.read_file(path, dst)
+                copy_remote_file(user, m, path, dst, args.dry_run)
 
 
 def push_file(user, m, local_path, remote_path, dry_run):

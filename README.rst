@@ -5,26 +5,26 @@
 docs: https://mpy-repl-tool.readthedocs.io/en/latest
 
 
-Transfer files via Python REPL (Read Eval Print Loop). This tool was developed
-to transfer files from and to MicroPython boards.
+Transfer files via Python REPL (Read Evaluate Print Loop). This tool was
+developed to transfer files from and to MicroPython boards.
 
 This is yet an other tool, there are now several similar tools but not all have
 the same features.
 
 Key features of this one:
 
-- ``detect`` serial ports and micropython boards.
+- ``detect`` serial ports and MicroPython boards.
 - ``run`` temporary scripts.
 - ``pull`` get files and directories from the target filesystem.
 - ``push`` files and directories on the target filesystem.
-- ``mount`` target as filesytem (FUSE).
+- ``mount`` target as filesystem (FUSE).
 - ``--interactive`` mode (terminal).
-- All of the above, and more, via the serial REPL connection to a micropython board.
+- set RTC
+- All of the above, and more, via the serial REPL connection to a MicroPython board.
 
 
 Usage
 =====
-
 Here is the output of ``python3 -m there --help``::
 
     usage: __main__.py [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
@@ -45,7 +45,7 @@ Here is the output of ``python3 -m there --help``::
         pull                file(s) to copy from target
         push                file(s) to copy onto target
         rm                  remove files on target
-        df                  Show filesytem information
+        df                  Show filesystem information
         mount               Make target files accessible via FUSE
 
     optional arguments:
@@ -74,3 +74,12 @@ wrong one if multiple USB serial devices are connected. In that case, use
 port to use on the other calls.
 
 Use ``python3 -m there <action> --help`` to get help on sub-commands.
+
+
+Requirements
+============
+This tool requires Python 3.
+
+It depends on pySerial for communication and the mount function requires
+fusepy. Those dependencies are automatically installed when using pip,
+see installation notes in documentation.

@@ -4,6 +4,8 @@
 
 Installation
 ============
+This tool requires Python 3.
+
 ::
 
     python3 -m pip install mpy-repl-tool
@@ -47,16 +49,17 @@ Usage examples
     python3 -m there ls -l
 
     # read the contents of a file from the target
-    python3 -m there cat /somepath/somefile
+    python3 -m there cat /flash/boot.py
 
     # copy multiple files from computer to target
     python3 -m there push *.py /flash
 
-    # copy main.py and library directory from computer to target
-    python3 -m there push -r lib main.py /flash
+    # copy main.py and library directory from computer to target, set RTC and
+    # reset to start. Note: that --set-rtc is not supported by all boards.
+    python3 -m there --reset-on-connect --set-rtc --reset push -r lib main.py /flash
 
-    # backup all the files on the pc
-    python3 -m there pull -r \* backup
+    # backup all the files from the board on the PC
+    python3 -m there pull -r / backup/
 
 Adding a ``-i`` starts a serial terminal::
 

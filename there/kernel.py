@@ -105,7 +105,7 @@ class MicroPythonKernel(Kernel):
         if self.repl is not None:
             self.repl.close()
             self.repl = None
-        self.write('mpy-repl-tool: diconnected')
+        self.write('mpy-repl-tool: disconnected')
 
     def meta_timeout(self, args=None):
         if args:

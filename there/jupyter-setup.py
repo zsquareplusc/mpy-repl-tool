@@ -23,7 +23,7 @@ KERNEL_JSON = """\
 
 def confirm(message):
     if input(message) not in ['y', 'yes']:
-        raise Exception('user reponded "no"')
+        raise Exception('user responded "no"')
 
 
 if __name__ == '__main__':
@@ -38,7 +38,7 @@ if __name__ == '__main__':
         elif sys.platform.startswith('darwin'):
             path = '~/Library/Jupyter/kernels'
         else:
-            raise OSError('Dont know how to handle this on this platform')
+            raise OSError('Do not know how to handle that on this platform')
 
         path = os.path.expanduser(os.path.expandvars(os.path.join(path, 'micropython-mpy-repl')))
         filename = os.path.join(path, 'kernel.json')

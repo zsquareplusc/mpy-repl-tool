@@ -256,7 +256,7 @@ class MicroPythonRepl(object):
 
     def read_from_file(self, path):
         """Return the contents of a remote file as byte string"""
-        # reading (lines * linesize) must not take more than 1sec and 2K target RAM!
+        # reading (lines * linesize) must not take more than 1sec and 2kB target RAM!
         lines = max(1, self.serial.baudrate // 9600)
         linesize = 510  # must be multiple of 3 to avoid padding in base64
         # use the fact that Python joins adjacent consecutive strings
@@ -286,9 +286,9 @@ class MicroPythonRepl(object):
                 'import uhashlib; _h = uhashlib.sha256()\n'
                 '_f = open({!r}, "rb")\n'
                 'while True:\n'
-                '    block = _f.read(512)\n'
-                '    if not block: break\n'
-                '    _h.update(block)\n'
+                '  block = _f.read(512)\n'
+                '  if not block: break\n'
+                '  _h.update(block)\n'
                 '_f.close(); del _f\n'.format(str(path)))
         except (FileNotFoundError, OSError):
             hash_value = b''
@@ -321,14 +321,14 @@ class MicroPythonRepl(object):
         """
         if not isinstance(contents, (bytes, bytearray)):
             raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
-        # writing (lines * linesize) must not take more than 1sec and 2K target RAM!
+        # writing (lines * linesize) must not take more than 1sec and 2kB target RAM!
         lines = max(1, min(16, self.serial.baudrate // 2400))
         linesize = 72
         # linesize = 128
         self.exec('import ubinascii; _f = open({!r}, "wb")'.format(str(path)))
-        with io.BytesIO(contents) as cfile:
+        with io.BytesIO(contents) as local_file:
             while True:
-                block = cfile.read(linesize * lines)
+                block = local_file.read(linesize * lines)
                 if not block:
                     break
                 block_base64 = binascii.b2a_base64(block)
@@ -353,10 +353,10 @@ class MicroPythonRepl(object):
             raise ValueError('only absolute paths are supported (beginning with "/"): {!r}'.format(path))
         if path == '/':
             files_and_stat = self.evaluate(
-                    'import os; print([(n, os.stat("/" + n)) for n in os.listdir("/")])')
+                'import os; print([(n, os.stat("/" + n)) for n in os.listdir("/")])')
         else:
             files_and_stat = self.evaluate(
-                    'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
+                'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
         if fake_attrs:
             files_and_stat = [(n, self._override_stat(st)) for (n, st) in files_and_stat]
         return [(n, os.stat_result(st)) for (n, st) in files_and_stat]

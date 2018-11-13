@@ -152,7 +152,7 @@ def command_ls(user, m, args):
 
 
 def print_hash(user, path, st, hash_value):
-    """output function hashed file info"""
+    """output function for hashed file info"""
     user.output_text('{} {:>7} {} {}\n'.format(
         binascii.hexlify(hash_value).decode('ascii'),
         nice_bytes(st.st_size),
@@ -419,7 +419,7 @@ def main():
     global_options.add_argument(
         '--reset-on-connect',
         action='store_true',
-        help='do a soft reset as first operation (main.py will not me executed)')
+        help='do a soft reset as first operation (main.py will not be executed)')
     global_options.add_argument(
         '--reset',
         action='store_true',
@@ -476,7 +476,7 @@ def main():
     parser_pull.add_argument('REMOTE', nargs='+', help='one or more source files/directories')
     parser_pull.add_argument('LOCAL', nargs=1, help='destination directory')
     parser_pull.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
-    parser_pull.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
+    parser_pull.add_argument('--dry-run', action='store_true', help='do not actually copy anything from target')
     parser_pull.set_defaults(func=command_pull, connect=True)
 
     parser_push = subparsers.add_parser('push', help='file(s) to copy onto target')
@@ -486,14 +486,14 @@ def main():
     parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_push.set_defaults(func=command_push, connect=True)
 
-    parser_rm = subparsers.add_parser('rm', help='remove files on target')
+    parser_rm = subparsers.add_parser('rm', help='remove files from target')
     parser_rm.add_argument('PATH', nargs='+', help='filename on target')
     parser_rm.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
     parser_rm.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
-    parser_rm.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
+    parser_rm.add_argument('--dry-run', action='store_true', help='do not actually delete anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 
-    parser_df = subparsers.add_parser('df', help='Show filesytem information')
+    parser_df = subparsers.add_parser('df', help='Show filesystem information')
     parser_df.add_argument('PATH', nargs='?', default='/', help='remote path')
     parser_df.set_defaults(func=command_df, connect=True)
 

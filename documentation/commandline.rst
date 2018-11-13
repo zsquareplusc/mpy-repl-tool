@@ -24,7 +24,7 @@ Overview
         pull                file(s) to copy from target
         push                file(s) to copy onto target
         rm                  remove files on target
-        df                  Show filesytem information
+        df                  Show filesystem information
         mount               Make target files accessible via FUSE
         rtc                 Read the real time clock (RTC)
 

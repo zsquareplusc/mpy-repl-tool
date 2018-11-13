@@ -5,6 +5,7 @@
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 import binascii
+import datetime
 import posixpath
 import os
 import sys
@@ -372,6 +373,18 @@ def command_mount(user, m, args):
         user.error('ERROR: Could not mount - note: directory must exist\n')
 
 
+def command_rtc(user, m, args):
+    """read the real time clock (RTC)"""
+    t1 = m.read_rtc()
+    user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t1))
+    if args.test:
+        time.sleep(1)
+        t2 = m.read_rtc()
+        user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t2))
+        if not datetime.timedelta(seconds=0.9) <  t2 - t1 < datetime.timedelta(seconds=1.1):
+            raise IOError('clock not running')
+        
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def main():
     import argparse
@@ -392,6 +405,10 @@ def main():
         '-i', '--interactive',
         action='store_true',
         help='drop to interactive shell at the end')
+    global_options.add_argument(
+        '--set-rtc',
+        action='store_true',
+        help='set the RTC to "now" before command is executed')
     global_options.add_argument(
         '--reset-on-connect',
         action='store_true',
@@ -478,6 +495,10 @@ def main():
     parser_mount.add_argument('-e', '--explore', action='store_true', help='auto open file explorer at mount point')
     parser_mount.set_defaults(func=command_mount, connect=True)
 
+    parser_rtc_read = subparsers.add_parser('rtc', help='Read the real time clock (RTC)')
+    parser_rtc_read.add_argument('--test', action='store_true', help='test if the clock runs')
+    parser_rtc_read.set_defaults(func=command_rtc, connect=True)
+
     namespace, remaining_args = global_options.parse_known_args()
     args = parser.parse_args(remaining_args, namespace=namespace)
 
@@ -498,6 +519,8 @@ def main():
                 m.soft_reset(run_main=False)
             else:
                 m.exec(' ')  # run an empty line to "sync"
+            if args.set_rtc:
+                m.set_rtc()
         if args.func:
             args.func(user, m, args)
         if args.command:

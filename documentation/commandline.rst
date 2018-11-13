@@ -26,6 +26,7 @@ Overview
         rm                  remove files on target
         df                  Show filesytem information
         mount               Make target files accessible via FUSE
+        rtc                 Read the real time clock (RTC)
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -35,6 +36,7 @@ Overview
       -c COMMAND, --command COMMAND
                             execute given code on target
       -i, --interactive     drop to interactive shell at the end
+      --set-rtc             set the RTC to "now" before command is executed
       --reset-on-connect    do a soft reset as first operation (main.py will not
                             me executed)
       --reset               do a soft reset on the end
@@ -262,3 +264,16 @@ renaming, deleting are supported.
 
 To improve performance, the mount command is caching data such as directory
 listings and stat file infos. The cache is set to be valid for 10 seconds.
+
+
+``rtc``
+-------
+Read and print the real time clock on baords that support ``pyb.RTC()``::
+
+    usage: __main__.py rtc [-h] [--test]
+
+    optional arguments:
+      -h, --help  show this help message and exit
+      --test      test if the clock runs
+
+The ``--test`` function reads the clock twice and check that it is running.

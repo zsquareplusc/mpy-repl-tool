@@ -18,6 +18,7 @@ REPL mode, so the current implementation is not generic for any Python REPL!
 """
 import ast
 import binascii
+import datetime
 import fnmatch
 import queue
 import io
@@ -420,3 +421,19 @@ class MicroPythonRepl(object):
             yield from ((posixpath.join(root, name), st) for name, st in filenames)
         except OSError:
             pass
+
+    def read_rtc(self):
+        """Read RTC and return a datetime object"""
+        year, month, day, weekday, hour, minute, second, subsecond = self.evaluate('import pyb; print(pyb.RTC().datetime())')
+        # subseconds are 1/256th of a second counting down
+        return datetime.datetime(year, month, day, hour, minute, second, (999999 * (255 - subsecond)) // 256)
+
+    def set_rtc(self, board_time=None):
+        """Set the targets RTC from given datetime object"""
+        if board_time is None: 
+            board_time = datetime.datetime.now()
+        self.exec('import pyb; print(pyb.RTC().datetime(({0:%Y},{0:%m},{0:%d},{1},{0:%H},{0:%M},{0:%S},{2})))'.format(
+            board_time,
+            board_time.weekday() + 1,
+            255 - (255 * board_time.microsecond) // 999999
+        ))

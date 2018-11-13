@@ -115,6 +115,8 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                     if err:
                         sys.stderr.write(prefix(err.decode('utf-8'), 'E'))
                 return out[2:].decode('utf-8'), err.decode('utf-8')
+        else:
+            return '', ''  # dummy output if timeout=0 was specified
 
     def exec(self, string, timeout=3):
         if not string.endswith('\n'):

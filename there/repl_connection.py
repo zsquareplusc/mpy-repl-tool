@@ -32,6 +32,8 @@ import time
 import traceback
 import serial
 import serial.threaded
+from . import os_error_list
+
 
 # match "OSError: [Errno 2] ENOENT" and "OSError: 2"
 re_oserror = re.compile(r'OSError: (\[Errno )?(\d+)(\] )?')
@@ -79,7 +81,9 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 elif err_num == 19:
                     raise OSError(err_num, 'No Such Device Error')
                 elif err_num:
-                    raise OSError(err_num, 'OSError')
+                    raise OSError(
+                        err_num,
+                        os_error_list.os_error_mapping.get(err_num, (None, 'OSError'))[1])
 
     def exec_raw(self, string, timeout=5):
         """Exec code, returning (stdout, stderr)"""

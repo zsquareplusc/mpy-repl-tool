@@ -291,13 +291,13 @@ def command_pull(user, m, args):
                 copy_remote_file(user, m, path, dst, args.dry_run)
 
 
-def push_file(user, m, local_path, remote_path, dry_run):
+def push_file(user, m, local_path, remote_path, dry_run, force):
     """\
     copy a file to the target, if it is not already up to date. check with
     hash if copy is needed
     """
     if not dry_run:
-        if m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
+        if force or m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
             user.info('{} -> {}\n'.format(local_path, remote_path))
             m.write_file(local_path, remote_path)
         else:
@@ -342,14 +342,26 @@ def command_push(user, m, args):
                         except ValueError:
                             pass
                     for filename in filenames:
-                        push_file(user, m, os.path.join(dirpath, filename), posixpath.join(dst, relpath, filename), args.dry_run)
+                        push_file(
+                            user, m,
+                            os.path.join(dirpath, filename),
+                            posixpath.join(dst, relpath, filename),
+                            args.dry_run, args.force)
             else:
                 user.notice('skiping directory: {}\n'.format(path))
         else:
             if dst_dir:
-                push_file(user, m, path, posixpath.join(dst, os.path.basename(path)), args.dry_run)
+                push_file(
+                    user, m,
+                    path,
+                    posixpath.join(dst, os.path.basename(path)),
+                    args.dry_run, args.force)
             else:
-                push_file(user, m, path, dst, args.dry_run)
+                push_file(
+                    user, m,
+                    path,
+                    dst,
+                    args.dry_run, args.force)
 
 
 def command_df(user, m, args):
@@ -508,6 +520,7 @@ def main():
     parser_push.add_argument('REMOTE', nargs=1, help='destination directory')
     parser_push.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
+    parser_push.add_argument('--force', action='store_true', help='write always, skip up-to-date check')
     parser_push.set_defaults(func=command_push, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files from target')

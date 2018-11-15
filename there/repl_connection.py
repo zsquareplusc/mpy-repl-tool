@@ -227,7 +227,7 @@ class MicroPythonRepl(object):
             st[stat.ST_GID] = os.getgid()
             st[stat.ST_UID] = os.getuid()
         except AttributeError:
-            pass  # Windwos
+            pass  # Windows
         return st
 
     def stat(self, path, fake_attrs=False):

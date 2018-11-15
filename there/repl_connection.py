@@ -257,40 +257,37 @@ class MicroPythonRepl(object):
     def read_from_file(self, path):
         """Return the contents of a remote file as byte string"""
         # reading (lines * linesize) must not take more than 1sec and 2kB target RAM!
-        lines = max(1, self.serial.baudrate // 9600)
-        linesize = 510  # must be multiple of 3 to avoid padding in base64
-        # use the fact that Python joins adjacent consecutive strings
-        # for the snippet here and for the remotely printed lines!
+        n_blocks = max(1, self.serial.baudrate // 5120)
         self.exec(
-            'import ubinascii; _f = open({!r}, "rb")\n'
-            'def _b():\n'
-            '  print("(b\'\'")\n'
-            '  for _ in range({}):\n'
-            '    block = _f.read({})\n'
-            '    if not block: break\n'
-            '    print(ubinascii.b2a_base64(block)[:-1])\n'
-            '  print(")")'.format(str(path), lines, linesize))
-        contents = b''
+            'import ubinascii; _f = open({!r}, "rb"); _mem = memoryview(bytearray(512))\n'
+            'def _b(blocks=8):\n'
+            '  print("[")\n'
+            '  for _ in range(blocks):\n'
+            '    n = _f.readinto(_mem)\n'
+            '    if not n: break\n'
+            '    print(ubinascii.b2a_base64(_mem[:n]), ",")\n'
+            '  print("]")'.format(str(path)))
+        contents = []
         while True:
-            block = self.evaluate('_b()')
-            if not block:
+            blocks = self.evaluate('_b({})'.format(n_blocks))
+            if not blocks:
                 break
-            contents += binascii.a2b_base64(block)
-        self.exec('_f.close(); del _f; del _b')
-        return contents
+            contents += [binascii.a2b_base64(block) for block in blocks]
+        self.exec('_f.close(); del _f, _b')
+        return b''.join(contents)
 
     def checksum_remote_file(self, path):
         """Return a checksum over the contents of a remote file"""
         try:
             self.exec(
-                'import uhashlib; _h = uhashlib.sha256()\n'
+                'import uhashlib; _h = uhashlib.sha256(); _mem = memoryview(bytearray(512))\n'
                 '_f = open({!r}, "rb")\n'
                 'while True:\n'
-                '  block = _f.read(512)\n'
-                '  if not block: break\n'
-                '  _h.update(block)\n'
-                '_f.close(); del _f\n'.format(str(path)))
-        except (FileNotFoundError, OSError):
+                '  n = _f.readinto(_mem)\n'
+                '  if not n: break\n'
+                '  _h.update(_mem[:n])\n'
+                '_f.close(); del n, _f, _mem\n'.format(str(path)))
+        except OSError:
             hash_value = b''
         else:
             hash_value = self.evaluate('print(_h.digest())')
@@ -321,19 +318,13 @@ class MicroPythonRepl(object):
         """
         if not isinstance(contents, (bytes, bytearray)):
             raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
-        # writing (lines * linesize) must not take more than 1sec and 2kB target RAM!
-        lines = max(1, min(16, self.serial.baudrate // 2400))
-        linesize = 72
-        # linesize = 128
         self.exec('import ubinascii; _f = open({!r}, "wb")'.format(str(path)))
         with io.BytesIO(contents) as local_file:
             while True:
-                block = local_file.read(linesize * lines)
+                block = local_file.read(512)
                 if not block:
                     break
-                block_base64 = binascii.b2a_base64(block)
-                byte_lines = [repr(block_base64[i:i + linesize]) for i in range(0, len(block_base64), linesize)]
-                self.exec('_f.write(ubinascii.a2b_base64(\n' + '\n'.join(byte_lines) + '))')
+                self.exec('_f.write(ubinascii.a2b_base64({!r}))'.format(binascii.b2a_base64(block).rstrip()))
         self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):

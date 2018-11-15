@@ -456,6 +456,11 @@ def main():
         '--develop',
         action='store_true',
         help='show tracebacks on errors (development of this tool)')
+    group.add_argument(
+        "--timeit",
+        action="store_true",
+        help="measure command run time",
+        default=False)
 
     parser = argparse.ArgumentParser(
         description='Do stuff via the MicroPython REPL',
@@ -548,7 +553,12 @@ def main():
             if args.set_rtc:
                 m.set_rtc()
         if args.func:
+            if args.timeit:
+                t_start = time.monotonic()
             args.func(user, m, args)
+            if args.timeit:
+                t_end = time.monotonic()
+                sys.stderr.write('t = {:.3f} s\n'.format(t_end - t_start))
         if args.command:
             if args.interactive:
                 m.exec(args.command, timeout=0)

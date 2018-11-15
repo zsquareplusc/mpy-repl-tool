@@ -6,16 +6,46 @@ Overview
 ========
 ::
 
-    usage: there [-h] [-p PORT] [-b BAUDRATE] [-c COMMAND] [-i]
-                      [--reset-on-connect] [--reset] [-u USER] [-w PASSWORD] [-v]
-                      [--develop]
-                      {detect,run,ls,hash,cat,pull,push,rm,df,mount} ...
+    usage: there [-h] [-p PORT] [-b BAUDRATE] [--set-rtc]
+                [--reset-on-connect] [-c COMMAND] [-i] [--reset] [-u USER]
+                [-w PASSWORD] [-v] [--develop] [--timeit]
+                ACTION ...
 
     Do stuff via the MicroPython REPL
 
-    positional arguments:
-      {detect,run,ls,hash,cat,pull,push,rm,df,mount}
-                            sub-command help
+    optional arguments:
+      -h, --help            show this help message and exit
+
+    port settings:
+      -p PORT, --port PORT  set the serial port
+      -b BAUDRATE, --baudrate BAUDRATE
+                            set the baud rate
+
+    operations before running action:
+      --set-rtc             set the RTC to "now" before command is executed
+      --reset-on-connect    do a soft reset as first operation (main.py will not
+                            be executed)
+
+    operations after running action:
+      -c COMMAND, --command COMMAND
+                            execute given code on target
+      -i, --interactive     drop to interactive shell at the end
+      --reset               do a soft reset on the end
+
+    login:
+      -u USER, --user USER  response to login prompt
+      -w PASSWORD, --password PASSWORD
+                            response to password prompt
+
+    diagnostics:
+      -v, --verbose         show diagnostic messages, repeat for more
+      --develop             show tracebacks on errors (development of this tool)
+      --timeit              measure command run time
+
+    subcommands:
+      use "__main__.py ACTION --help" for more on each sub-command
+
+      ACTION                sub-command help
         detect              help locating a board
         run                 execute file contents on target
         ls                  list files
@@ -23,28 +53,10 @@ Overview
         cat                 print contents of one file
         pull                file(s) to copy from target
         push                file(s) to copy onto target
-        rm                  remove files on target
+        rm                  remove files from target
         df                  Show filesystem information
         mount               Make target files accessible via FUSE
         rtc                 Read the real time clock (RTC)
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      -p PORT, --port PORT  set the serial port
-      -b BAUDRATE, --baudrate BAUDRATE
-                            set the baud rate
-      -c COMMAND, --command COMMAND
-                            execute given code on target
-      -i, --interactive     drop to interactive shell at the end
-      --set-rtc             set the RTC to "now" before command is executed
-      --reset-on-connect    do a soft reset as first operation (main.py will not
-                            me executed)
-      --reset               do a soft reset on the end
-      -u USER, --user USER  response to login prompt
-      -w PASSWORD, --password PASSWORD
-                            response to password prompt
-      -v, --verbose         show diagnostic messages, repeat for more
-      --develop             show tracebacks on errors (development of this tool)
 
 One ``--verbose`` prints progress information on stderr for some actions, e.g.
 ``push``. A second ``--verbose`` (e.g. ``-vv``) also prints the data exchanged
@@ -209,18 +221,24 @@ wildcards, e.g. ``*.py``.
 
 ::
 
-    usage: there push [-h] [-r] [--dry-run] LOCAL [LOCAL ...] REMOTE
+    usage: __main__.py push [-h] [-r] [--dry-run] [--force]
+                            LOCAL [LOCAL ...] REMOTE
 
     positional arguments:
-      LOCAL                 one or more source files/directories
-      REMOTE                destination directory
+      LOCAL            one or more source files/directories
+      REMOTE           destination directory
 
     optional arguments:
-      -h, --help            show this help message and exit
-      -r, --recursive       copy recursively
-      --dry-run             do not actually create anything on target
+      -h, --help       show this help message and exit
+      -r, --recursive  copy recursively
+      --dry-run        do not actually create anything on target
+      --force          write always, skip up-to-date check
 
-Directories named ``__pycache__`` are excluded.
+Directories named ``.git`` or ``__pycache__`` are excluded.
+
+By default files are first checked (SHA256) if they are already up to date
+and copying is not needed. This speeds up transfer substantially. With
+``--force``, this check will be skipped and the files are always transferred.
 
 The action can also be combined with ``--command`` and
 ``--interactive`` to start the downloaded code and see its

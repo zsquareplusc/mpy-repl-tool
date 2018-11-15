@@ -482,7 +482,7 @@ def main():
     subparsers = parser.add_subparsers(
         help='sub-command help',
         metavar='ACTION',
-        description='use "%(prog)s ACTION --help" for more on each subcommand')
+        description='use "%(prog)s ACTION --help" for more on each sub-command')
 
     parser_detect = subparsers.add_parser('detect', help='help locating a board')
     parser_detect.add_argument('-t', '--test', action='store_true', help='open and test each port')

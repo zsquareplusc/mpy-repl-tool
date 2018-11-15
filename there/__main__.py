@@ -397,46 +397,62 @@ def main():
     import argparse
 
     global_options = argparse.ArgumentParser(add_help=False)
-    global_options.add_argument(
+
+    group = global_options.add_argument_group("port settings")
+
+    group.add_argument(
         '-p', '--port',
         default=os.environ.get('MPY_PORT', 'hwgrep://USB'),
         help='set the serial port')
-    global_options.add_argument(
+    group.add_argument(
         '-b', '--baudrate', type=int,
         default=os.environ.get('MPY_BAUDRATE', '115200'),
         help='set the baud rate')
-    global_options.add_argument(
-        '-c', '--command',
-        help='execute given code on target')
-    global_options.add_argument(
-        '-i', '--interactive',
-        action='store_true',
-        help='drop to interactive shell at the end')
-    global_options.add_argument(
+
+    group = global_options.add_argument_group("operations before running action")
+
+    group.add_argument(
         '--set-rtc',
         action='store_true',
         help='set the RTC to "now" before command is executed')
-    global_options.add_argument(
+    group.add_argument(
         '--reset-on-connect',
         action='store_true',
         help='do a soft reset as first operation (main.py will not be executed)')
-    global_options.add_argument(
+
+    group = global_options.add_argument_group("operations after running action")
+
+    group.add_argument(
+        '-c', '--command',
+        help='execute given code on target')
+    group.add_argument(
+        '-i', '--interactive',
+        action='store_true',
+        help='drop to interactive shell at the end')
+    group.add_argument(
         '--reset',
         action='store_true',
         help='do a soft reset on the end')
-    global_options.add_argument(
+
+    group = global_options.add_argument_group("login")
+
+    group.add_argument(
         '-u', '--user',
         default=os.environ.get('MPY_USER'),
         help='response to login prompt')
-    global_options.add_argument(
+    group.add_argument(
         '-w', '--password',
         default=os.environ.get('MPY_PASSWORD'),
         help='response to password prompt')
-    global_options.add_argument(
+
+
+    group = global_options.add_argument_group("diagnostics")
+
+    group.add_argument(
         '-v', '--verbose',
         action='count', default=0,
         help='show diagnostic messages, repeat for more')
-    global_options.add_argument(
+    group.add_argument(
         '--develop',
         action='store_true',
         help='show tracebacks on errors (development of this tool)')
@@ -446,7 +462,10 @@ def main():
         parents=[global_options])
     parser.set_defaults(connect=False, func=lambda user, m, args: 0)
 
-    subparsers = parser.add_subparsers(help='sub-command help')
+    subparsers = parser.add_subparsers(
+        help='sub-command help',
+        metavar='ACTION',
+        description='use "%(prog)s ACTION --help" for more on each subcommand')
 
     parser_detect = subparsers.add_parser('detect', help='help locating a board')
     parser_detect.add_argument('-t', '--test', action='store_true', help='open and test each port')

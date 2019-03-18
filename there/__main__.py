@@ -298,12 +298,12 @@ def push_file(user, m, local_path, remote_path, dry_run, force):
     """
     if not dry_run:
         if force or m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
-            user.info('{} -> {}\n'.format(local_path, remote_path))
+            user.notice('{} -> {}\n'.format(local_path, remote_path))
             m.write_file(local_path, remote_path)
         else:
             user.info('{}: already up to date\n'.format(remote_path))
     else:
-        user.info('dry run: {} -> {}\n'.format(local_path, remote_path))
+        user.notice('dry run: {} -> {}\n'.format(local_path, remote_path))
 
 
 def command_push(user, m, args):

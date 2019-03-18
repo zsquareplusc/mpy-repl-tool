@@ -19,13 +19,36 @@ from . import repl_connection
 from . import miniterm_mpy
 
 
-class UserMessages(object):
+class FileCounter:
+    """class to keep track of files processed, e.g. for push or pull operations"""
+
+    def __init__(self):
+        self.files = 0
+        self.skipped = 0
+
+    def add_file(self):
+        self.files += 1
+
+    def skip_file(self):
+        self.skipped += 1
+
+    def print_summary(self, user, action):
+        message = [
+            '{files} files {action}'.format(files=self.files, action=action)
+        ]
+        if self.skipped:
+            message.append('{skipped} skipped'.format(skipped=self.skipped))
+        user.notice('{}\n'.format(', '.join(message)))
+
+
+class UserMessages:
     """
     Provide a class with methods to interact with user. Makes it simpler to
     track verbosity flag.
     """
     def __init__(self, verbosity):
         self.verbosity = verbosity
+        self.file_counter = FileCounter()
 
     def output_binary(self, message):
         """output bytes, typically stdout"""
@@ -41,11 +64,12 @@ class UserMessages(object):
 
     def notice(self, message):
         """informative messages to stderr"""
-        sys.stderr.write(message)
+        if self.verbosity > 0:
+            sys.stderr.write(message)
 
     def info(self, message):
         """informative messages to stderr, only if verbose flag is set"""
-        if self.verbosity > 0:
+        if self.verbosity > 1:
             sys.stderr.write(message)
 
 
@@ -56,7 +80,7 @@ def make_connection(user, args, port=None):
                                         args.baudrate,
                                         user=args.user,
                                         password=args.password)
-    m.protocol.verbose = args.verbose > 1
+    m.protocol.verbose = args.verbose > 2
     user.info('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
@@ -194,7 +218,10 @@ def command_cat(user, m, args):
 def remove_remote_file(user, m, remote_path, dry_run):
     user.info('rm {}\n'.format(remote_path))
     if not dry_run:
+        user.file_counter.add_file()
         m.remove(remote_path)
+    else:
+        user.file_counter.skip_file()
 
 
 def remove_remote_directory(user, m, remote_path, dry_run):
@@ -224,6 +251,7 @@ def command_rm(user, m, args):
                     remove_remote_directory(user, m, path, args.dry_run)
             else:
                 remove_remote_file(user, m, path, args.dry_run)
+    user.file_counter.print_summary(user, 'removed')
 
 
 EXCLUDE_DIRS = [
@@ -244,9 +272,12 @@ def ensure_dir(m, path):
 
 
 def copy_remote_file(user, m, remote_path, local_path, dry_run):
-    user.info('{} -> {}\n'.format(remote_path, local_path))
+    user.notice('{} -> {}\n'.format(remote_path, local_path))
     if not dry_run:
+        user.file_counter.add_file()
         m.read_file(remote_path, local_path)
+    else:
+        user.file_counter.skip_file()
 
 
 def command_pull(user, m, args):
@@ -289,6 +320,7 @@ def command_pull(user, m, args):
                 copy_remote_file(user, m, path, os.path.join(dst, posixpath.basename(path)), args.dry_run)
             else:
                 copy_remote_file(user, m, path, dst, args.dry_run)
+    user.file_counter.print_summary(user, 'copied')
 
 
 def push_file(user, m, local_path, remote_path, dry_run, force):
@@ -298,12 +330,15 @@ def push_file(user, m, local_path, remote_path, dry_run, force):
     """
     if not dry_run:
         if force or m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
-            user.info('{} -> {}\n'.format(local_path, remote_path))
+            user.file_counter.add_file()
+            user.notice('{} -> {}\n'.format(local_path, remote_path))
             m.write_file(local_path, remote_path)
         else:
+            user.file_counter.skip_file()
             user.info('{}: already up to date\n'.format(remote_path))
     else:
-        user.info('dry run: {} -> {}\n'.format(local_path, remote_path))
+        user.file_counter.skip_file()
+        user.notice('dry run: {} -> {}\n'.format(local_path, remote_path))
 
 
 def command_push(user, m, args):
@@ -362,6 +397,7 @@ def command_push(user, m, args):
                     path,
                     dst,
                     args.dry_run, args.force)
+    user.file_counter.print_summary(user, 'copied')
 
 
 def command_df(user, m, args):

@@ -32,12 +32,14 @@ class FileCounter:
     def skip_file(self):
         self.skipped += 1
 
-    def print_summary(self, user, action):
+    def print_summary(self, user, action_verb, skipped_verb='skipped'):
         message = [
-            '{files} files {action}'.format(files=self.files, action=action)
+            '{files} files {action_verb}'.format(files=self.files, action_verb=action_verb)
         ]
         if self.skipped:
-            message.append('{skipped} skipped'.format(skipped=self.skipped))
+            message.append('{skipped} {skipped_verb}'.format(
+                skipped=self.skipped,
+                skipped_verb=skipped_verb))
         user.notice('{}\n'.format(', '.join(message)))
 
 
@@ -320,7 +322,7 @@ def command_pull(user, m, args):
                 copy_remote_file(user, m, path, os.path.join(dst, posixpath.basename(path)), args.dry_run)
             else:
                 copy_remote_file(user, m, path, dst, args.dry_run)
-    user.file_counter.print_summary(user, 'copied')
+    user.file_counter.print_summary(user, 'copied', 'already up to date')
 
 
 def push_file(user, m, local_path, remote_path, dry_run, force):
@@ -397,7 +399,7 @@ def command_push(user, m, args):
                     path,
                     dst,
                     args.dry_run, args.force)
-    user.file_counter.print_summary(user, 'copied')
+    user.file_counter.print_summary(user, 'copied', 'already up to date')
 
 
 def command_df(user, m, args):

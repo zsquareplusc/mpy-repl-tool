@@ -58,8 +58,9 @@ Overview
         mount               Make target files accessible via FUSE
         rtc                 Read the real time clock (RTC)
 
-One ``--verbose`` prints progress information on stderr for some actions, e.g.
-``push``. A second ``--verbose`` (e.g. ``-vv``) also prints the data exchanged
+One or two ``--verbose`` flag print progress information on stderr for some
+actions, e.g. ``push`` and ``pull`` list deltas with one ``-v`` and all files
+with two. A third ``--verbose`` (or ``-vvv``) also prints the data exchanged
 between PC and target.
 
 The order of operation is as follows:

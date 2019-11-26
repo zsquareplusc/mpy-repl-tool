@@ -61,8 +61,13 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         self.response.put(data)
 
     def connection_lost(self, exc):
+        # FIXME: confusing TypeError if connection lost because port is already open by another process
+        # (TypeError: '>=' not supported between instances of 'SerialException' and 'int')
         if exc:
-            traceback.print_exc(exc)
+            if type(exc) is serial.SerialException:
+                sys.stderr.write(str(exc) + '\n')
+            else:
+                traceback.print_exc(exc)
         #~ sys.stderr.write('port closed\n')
 
     def _parse_error(self, text):
@@ -427,7 +432,7 @@ class MicroPythonRepl(object):
 
     def set_rtc(self, board_time=None):
         """Set the targets RTC from given datetime object"""
-        if board_time is None: 
+        if board_time is None:
             board_time = datetime.datetime.now()
         self.exec('import pyb; print(pyb.RTC().datetime(({0:%Y},{0:%m},{0:%d},{1},{0:%H},{0:%M},{0:%S},{2})))'.format(
             board_time,

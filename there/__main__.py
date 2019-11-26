@@ -83,7 +83,7 @@ def make_connection(user, args, port=None):
                                         user=args.user,
                                         password=args.password)
     m.protocol.verbose = args.verbose > 2
-    user.info('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
+    user.notice('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 
@@ -440,7 +440,7 @@ def command_rtc(user, m, args):
         user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t2))
         if not datetime.timedelta(seconds=0.9) <  t2 - t1 < datetime.timedelta(seconds=1.1):
             raise IOError('clock not running')
-        
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def main():

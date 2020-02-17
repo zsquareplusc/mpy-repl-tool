@@ -370,7 +370,7 @@ class MicroPythonRepl(object):
                 yield from self.walk(posixpath.join(dirpath, dirname))
         else:
             for dirname, st in dirnames:
-                yield from self.walk(posixpath.join(dirpath, dirname))
+                yield from self.walk(posixpath.join(dirpath, dirname), topdown=False)
             yield dirpath, dirnames, filenames
 
     def glob(self, pattern):

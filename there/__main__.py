@@ -248,7 +248,7 @@ def command_rm(user, m, args):
                             remove_remote_directory(user, m, posixpath.join(dirpath, name), args.dry_run)
                         for name, st in file_stat:
                             remove_remote_file(user, m, posixpath.join(dirpath, name), args.dry_run)
-                    remove_remote_directory(user, m, dirpath, args.dry_run)
+                    remove_remote_directory(user, m, path, args.dry_run)
                 else:
                     remove_remote_directory(user, m, path, args.dry_run)
             else:

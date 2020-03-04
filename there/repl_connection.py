@@ -62,7 +62,10 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
 
     def connection_lost(self, exc):
         if exc:
-            traceback.print_exc(exc)
+            if self.verbose:
+                traceback.print_exception(type(exc), exc, exc.__traceback__)
+            else:
+                sys.stderr.write('Error accessing serial port: {}\n'.format(exc))
         #~ sys.stderr.write('port closed\n')
 
     def _parse_error(self, text):
@@ -106,7 +109,10 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
             except queue.Empty:
                 raise IOError('timeout')
             else:
-                out, err = data.split(b'\x04')
+                try:
+                    out, err = data.split(b'\x04')
+                except ValueError:
+                    raise IOError('CTRL-D missing in response: {!r}'.format(data))
                 # if not out.startswith(b'OK'):
                 if b'OK' not in out:
                     raise IOError('data was not accepted: {}: {}'.format(out, err))

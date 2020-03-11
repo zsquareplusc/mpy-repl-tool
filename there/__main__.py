@@ -83,7 +83,7 @@ def make_connection(user, args, port=None):
                                         user=args.user,
                                         password=args.password)
     m.protocol.verbose = args.verbose > 2
-    user.info('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
+    user.notice('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 
@@ -121,7 +121,7 @@ def command_run(user, m, args):
     # XXX set timeout / as argument?
     if args.timeout == 0:
         raise ValueError('use --interactive instead of --timeout=0')
-    user.info('reading to {}\n'.format(args.FILE))
+    user.info('reading {}\n'.format(args.FILE))
     with open(args.FILE) as f:
         code = f.read()
     user.info('executing...\n')

@@ -440,7 +440,7 @@ def command_rtc(user, m, args):
         user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t2))
         if not datetime.timedelta(seconds=0.9) <  t2 - t1 < datetime.timedelta(seconds=1.1):
             raise IOError('clock not running')
-        
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def main():
@@ -589,10 +589,16 @@ def main():
     if args.command or args.interactive or args.reset:
         args.connect = True
 
-    if args.connect:
-        m = make_connection(user, args)
-    else:
-        m = None
+    try:
+        if args.connect:
+            m = make_connection(user, args)
+        else:
+            m = None
+    except Exception as e:
+        if args.develop:
+            raise
+        user.error('ERROR: connection failed: {}\n'.format(e))
+        sys.exit(2)
 
     exitcode = 0
     try:

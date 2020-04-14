@@ -370,9 +370,9 @@ def command_push(user, m, args):
             if args.recursive:
                 root = os.path.dirname(path)
                 for dirpath, dirnames, filenames in os.walk(path):
-                    relpath = os.path.relpath(dirpath, root)
+                    relpath = os.path.relpath(dirpath, root).split(os.path.sep)
                     if not args.dry_run:
-                        ensure_dir(m, posixpath.join(dst, relpath))
+                        ensure_dir(m, posixpath.join(dst, *relpath))
                     for dir in EXCLUDE_DIRS:
                         try:
                             dirnames.remove(dir)
@@ -382,7 +382,7 @@ def command_push(user, m, args):
                         push_file(
                             user, m,
                             os.path.join(dirpath, filename),
-                            posixpath.join(dst, relpath, filename),
+                            posixpath.join(dst, *relpath, filename),
                             args.dry_run, args.force)
             else:
                 user.notice('skiping directory: {}\n'.format(path))

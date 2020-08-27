@@ -476,6 +476,11 @@ def main():
         '-c', '--command',
         help='execute given code on target')
     group.add_argument(
+        '--command-timeout',
+        type=float,
+        default=3,
+        help='timeout in seconds for --command', metavar='T')
+    group.add_argument(
         '-i', '--interactive',
         action='store_true',
         help='drop to interactive shell at the end')
@@ -620,7 +625,7 @@ def main():
             if args.interactive:
                 m.exec(args.command, timeout=0)
             else:
-                user.output_text(m.exec(args.command))
+                user.output_text(m.exec(args.command, timeout=args.command_timeout))
         if args.reset:
             m.soft_reset(run_main=True)
     except Exception as e:

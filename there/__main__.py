@@ -83,7 +83,7 @@ def make_connection(user, args, port=None):
                                         user=args.user,
                                         password=args.password)
     m.protocol.verbose = args.verbose > 2
-    user.notice('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
+    user.notice('port {} opened with {} baud\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 

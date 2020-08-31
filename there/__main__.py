@@ -122,8 +122,7 @@ def command_run(user, m, args):
     if args.timeout == 0:
         raise ValueError('use --interactive instead of --timeout=0')
     user.info('reading {}\n'.format(args.FILE))
-    with open(args.FILE) as f:
-        code = f.read()
+    code = args.FILE.read()
     user.info('executing...\n')
     if args.interactive:
         m.exec(code, timeout=0)
@@ -532,7 +531,7 @@ def main():
     parser_detect.set_defaults(func=command_detect)
 
     parser_run = subparsers.add_parser('run', help='execute file contents on target')
-    parser_run.add_argument('FILE', nargs='?', help='load this file contents')
+    parser_run.add_argument('FILE', type=argparse.FileType('r', encoding='UTF-8'), help='load this file contents')
     parser_run.add_argument('-t', '--timeout', type=float, default='10', help='wait x seconds for completion')
     parser_run.set_defaults(func=command_run, connect=True)
 

@@ -478,7 +478,7 @@ def main():
     group.add_argument(
         '--command-timeout',
         type=float,
-        default=3,
+        default=5,
         help='timeout in seconds for --command', metavar='T')
     group.add_argument(
         '-i', '--interactive',

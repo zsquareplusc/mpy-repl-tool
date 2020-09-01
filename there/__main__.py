@@ -83,7 +83,7 @@ def make_connection(user, args, port=None):
                                         user=args.user,
                                         password=args.password)
     m.protocol.verbose = args.verbose > 2
-    user.notice('connected to {} {}\n'.format(m.serial.port, m.serial.baudrate))
+    user.notice('port {} opened with {} baud\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 
@@ -122,8 +122,7 @@ def command_run(user, m, args):
     if args.timeout == 0:
         raise ValueError('use --interactive instead of --timeout=0')
     user.info('reading {}\n'.format(args.FILE))
-    with open(args.FILE) as f:
-        code = f.read()
+    code = args.FILE.read()
     user.info('executing...\n')
     if args.interactive:
         m.exec(code, timeout=0)
@@ -476,6 +475,11 @@ def main():
         '-c', '--command',
         help='execute given code on target')
     group.add_argument(
+        '--command-timeout',
+        type=float,
+        default=5,
+        help='timeout in seconds for --command', metavar='T')
+    group.add_argument(
         '-i', '--interactive',
         action='store_true',
         help='drop to interactive shell at the end')
@@ -527,7 +531,7 @@ def main():
     parser_detect.set_defaults(func=command_detect)
 
     parser_run = subparsers.add_parser('run', help='execute file contents on target')
-    parser_run.add_argument('FILE', nargs='?', help='load this file contents')
+    parser_run.add_argument('FILE', type=argparse.FileType('r', encoding='UTF-8'), help='load this file contents')
     parser_run.add_argument('-t', '--timeout', type=float, default='10', help='wait x seconds for completion')
     parser_run.set_defaults(func=command_run, connect=True)
 
@@ -620,7 +624,7 @@ def main():
             if args.interactive:
                 m.exec(args.command, timeout=0)
             else:
-                user.output_text(m.exec(args.command))
+                user.output_text(m.exec(args.command, timeout=args.command_timeout))
         if args.reset:
             m.soft_reset(run_main=True)
     except Exception as e:

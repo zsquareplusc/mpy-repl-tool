@@ -50,6 +50,7 @@ Here is the output of ``python3 -m there --help``::
   operations after running action:
     -c COMMAND, --command COMMAND
                           execute given code on target
+    --command-timeout T   timeout in seconds for --command
     -i, --interactive     drop to interactive shell at the end
     --reset               do a soft reset on the end
 

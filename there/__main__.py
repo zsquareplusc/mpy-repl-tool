@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # encoding: utf-8
 #
-# (C) 2016-2018 Chris Liechti <cliechti@gmx.net>
+# (C) 2016-2020 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 import binascii

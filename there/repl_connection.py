@@ -263,10 +263,11 @@ class MicroPythonRepl(object):
     def read_file(self, path, local_filename):
         """copy a file from remote to local filesystem"""
         with open(local_filename, 'wb') as f:
-            f.write(self.read_from_file(path))
+            for block in self.read_from_file_stream(path):
+                f.write(block)
 
-    def read_from_file(self, path):
-        """Return the contents of a remote file as byte string"""
+    def read_from_file_stream(self, path):
+        """yield all parts of a file contents of a remote file as byte string (generator)"""
         # reading (lines * linesize) must not take more than 1sec and 2kB target RAM!
         n_blocks = max(1, self.serial.baudrate // 5120)
         self.exec(
@@ -283,9 +284,12 @@ class MicroPythonRepl(object):
             blocks = self.evaluate('_b({})'.format(n_blocks))
             if not blocks:
                 break
-            contents += [binascii.a2b_base64(block) for block in blocks]
+            yield from [binascii.a2b_base64(block) for block in blocks]
         self.exec('_f.close(); del _f, _b')
-        return b''.join(contents)
+
+    def read_from_file(self, path):
+        """Return the contents of a remote file as byte string"""
+        return b''.join(self.read_from_file_stream(path))
 
     def checksum_remote_file(self, path):
         """Return a checksum over the contents of a remote file"""
@@ -302,7 +306,8 @@ class MicroPythonRepl(object):
             # fallback if no hashlib is available, upload and hash here. silly...
             try:
                 _h = hashlib.sha256()
-                _h.update(self.read_from_file(path))
+                for block in self.read_from_file_stream(path):
+                    _h.update(block)
                 return _h.digest()
             except FileNotFoundError:
                 return b''

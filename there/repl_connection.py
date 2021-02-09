@@ -16,6 +16,7 @@ as most higher level operations will need stat info.
 Note: The protocol uses MicroPython specific control codes to switch to a raw
 REPL mode, so the current implementation is not generic for any Python REPL!
 """
+import builtins
 import ast
 import binascii
 import datetime
@@ -37,6 +38,7 @@ from . import os_error_list
 
 # match "OSError: [Errno 2] ENOENT" and "OSError: 2"
 re_oserror = re.compile(r'OSError: (\[Errno )?(\d+)(\] )?')
+re_exceptions = re.compile(r'(ValueError|KeyError|ImportError): (.*)')
 
 
 def prefix(text, prefix):
@@ -87,6 +89,9 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                     raise OSError(
                         err_num,
                         os_error_list.os_error_mapping.get(err_num, (None, 'OSError'))[1])
+            m = re_exceptions.match(lines[-1])
+            if m:
+                raise getattr(builtins, m.group(1))(m.group(2))
 
     def exec_raw(self, string, timeout=5):
         """Exec code, returning (stdout, stderr)"""

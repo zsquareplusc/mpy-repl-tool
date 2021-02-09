@@ -40,7 +40,7 @@ Usage examples
 ::
 
     # run a file without copying it to the target's file system:
-    python3 -m there run test.py
+    python3 -m there run examples/hello_world.py
 
     # get a file list
     python3 -m there ls
@@ -66,7 +66,7 @@ Adding a ``-i`` starts a serial terminal::
     python3 -m there -i
 
     # or after running an other action
-    python3 -m there -i run test.py
+    python3 -m there -i run examples/hello_world.py
 
 An few statements can be executed using ``-c`` and it can be combined with other options::
 

@@ -121,6 +121,14 @@ execution:
 
         Return the contents of a remote file as byte string.
 
+    .. method:: read_from_file_stream(path)
+
+        :param str path: Absolute path on target.
+        :returns: Iterator
+        :rtype: Iterator of bytes
+
+        Iterate over blocks (`bytes`) of a remote file.
+
     .. method:: write_file(local_filename, path)
 
         :param str local_filename: Path to local file

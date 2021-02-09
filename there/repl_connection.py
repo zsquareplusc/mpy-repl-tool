@@ -298,6 +298,14 @@ class MicroPythonRepl(object):
                 '  if not n: break\n'
                 '  _h.update(_mem[:n])\n'
                 '_f.close(); del n, _f, _mem\n'.format(str(path)))
+        except ImportError:
+            # fallback if no hashlib is available, upload and hash here. silly...
+            try:
+                _h = hashlib.sha256()
+                _h.update(self.read_from_file(path))
+                return _h.digest()
+            except FileNotFoundError:
+                return b''
         except OSError:
             hash_value = b''
         else:

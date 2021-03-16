@@ -230,37 +230,6 @@ class MicroPythonRepl(object):
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
-    def read_file(self, path, local_filename):
-        """copy a file from remote to local filesystem"""
-        with open(local_filename, 'wb') as f:
-            for block in self.read_from_file_stream(path):
-                f.write(block)
-
-    def read_from_file_stream(self, path):
-        """yield all parts of a file contents of a remote file as byte string (generator)"""
-        # reading (lines * linesize) must not take more than 1sec and 2kB target RAM!
-        n_blocks = max(1, self.serial.baudrate // 5120)
-        self.exec(
-            'import ubinascii; _f = open({!r}, "rb"); _mem = memoryview(bytearray(512))\n'
-            'def _b(blocks=8):\n'
-            '  print("[")\n'
-            '  for _ in range(blocks):\n'
-            '    n = _f.readinto(_mem)\n'
-            '    if not n: break\n'
-            '    print(ubinascii.b2a_base64(_mem[:n]), ",")\n'
-            '  print("]")'.format(str(path)))
-        contents = []
-        while True:
-            blocks = self.evaluate(f'_b({n_blocks})')
-            if not blocks:
-                break
-            yield from [binascii.a2b_base64(block) for block in blocks]
-        self.exec('_f.close(); del _f, _b')
-
-    def read_from_file(self, path):
-        """Return the contents of a remote file as byte string"""
-        return b''.join(self.read_from_file_stream(path))
-
     def checksum_remote_file(self, path):
         """Return a checksum over the contents of a remote file"""
         try:
@@ -276,7 +245,7 @@ class MicroPythonRepl(object):
             # fallback if no hashlib is available, upload and hash here. silly...
             try:
                 _h = hashlib.sha256()
-                for block in self.read_from_file_stream(path):
+                for block in path.read_as_stream():
                     _h.update(block)
                 return _h.digest()
             except FileNotFoundError:
@@ -298,28 +267,6 @@ class MicroPythonRepl(object):
                     break
                 _h.update(block)
         return _h.digest()
-
-    def write_file(self, local_filename, path=None):
-        """Copy a file from local to remote filesystem"""
-        if path is None:
-            path = local_filename
-        with open(local_filename, 'rb') as f:
-            self.write_to_file(path, f.read())
-
-    def write_to_file(self, path, contents):
-        """\
-        Write contents (expected to be bytes) to path on the target.
-        """
-        if not isinstance(contents, (bytes, bytearray)):
-            raise TypeError('contents must be bytes/bytearray, got {} instead'.format(type(contents)))
-        self.exec('import ubinascii; _f = open({!r}, "wb")'.format(str(path)))
-        with io.BytesIO(contents) as local_file:
-            while True:
-                block = local_file.read(512)
-                if not block:
-                    break
-                self.exec('_f.write(ubinascii.a2b_base64({!r}))'.format(binascii.b2a_base64(block).rstrip()))
-        self.exec('_f.close(); del _f')
 
     def truncate(self, path, length):
         # MicroPython 1.9.3 has no file.truncate(), but open(...,"ab"); write(b"") seems to work.
@@ -347,6 +294,10 @@ class MicroPythonRepl(object):
 
 
 def _override_stat(st):
+    """
+    Override stat object with some fake attributes, uid/gui of the current
+    user, mode flags.
+    """
     # XXX fake some attributes: rw, uid/gid
     st = list(st)
     st[stat.ST_MODE] |= 0o660
@@ -359,20 +310,38 @@ def _override_stat(st):
 
 
 class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
+    """
+    The path object represents a file or directory (existing or not) on the
+    target board. To actually modify the target, `connect_repl()` must be
+    called first (many functions will do this automatically).
+    """
+    __slots__ = ('_repl', '_stat_cache')
 
     def connect_repl(self, repl):
-        """Connect object to remote connection"""
+        """Connect object to remote connection."""
         self._repl = repl
         return self  # allow method joining
 
-    def stat(self, fake_attrs=False):
-        """return stat information about path on remote"""
-        st = self._repl.evaluate(f'import os; print(os.stat({self.as_posix()!r}))')
-        if fake_attrs:
-            st = _override_stat(st)
-        return os.stat_result(st)
+    def _with_stat(self, st):
+        self._stat_cache = os.stat_result(st)
+        return self
+
+    def stat(self, fake_attrs=False) -> os.stat_result:
+        """
+        :param fake_attrs: When true, use dummy user and group info.
+
+        Return stat information about path on remote. The information is cached
+        to speed up operations.
+        """
+        if getattr(self, '_stat_cache', None) is None:
+            st = self._repl.evaluate(f'import os; print(os.stat({self.as_posix()!r}))')
+            if fake_attrs:
+                st = _override_stat(st)
+            self._stat_cache = os.stat_result(st)
+        return self._stat_cache
 
     def exists(self):
+        """Return True if target exists"""
         try:
             self.stat()
         except FileNotFoundError:
@@ -381,25 +350,42 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
             return True
 
     def is_dir(self):
+        """Return True if target exists and is a directory"""
         try:
             return (self.stat().st_mode & stat.S_IFDIR) != 0
         except FileNotFoundError:
             return False
 
     def is_file(self):
+        """Return True if target exists and is a regular file"""
         try:
             return (self.stat().st_mode & stat.S_IFREG) != 0
         except FileNotFoundError:
             return False
 
     def unlink(self):
+        """Delete file"""
+        self._stat_cache = None
         self._repl.evaluate(f'import os; print(os.remove({self.as_posix()!r}))')
 
     def rename(self, path_to):
+        """
+        :param path_to: new name
+        :return: new path object
+
+        Rename target.
+        """
+        self._stat_cache = None
         self._repl.evaluate(f'import os; print(os.rename({self.as_posix()!r}, {path_to.as_posix()!r}))')
         return self.with_name(path_to).connect_repl(self._repl)  # XXX, moves across dirs
 
     def mkdir(self, parents=False, exist_ok=False):
+        """
+        :param parents: When true, create parent directories
+        :param exist_ok: No error if the directory does not exist
+
+        Create duirectory.
+        """
         try:
             return self._repl.evaluate(f'import os; print(os.mkdir({self.as_posix()!r}))')
         except FileExistsError as e:
@@ -409,29 +395,79 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
                 raise
 
     def rmdir(self):
+        """Remove directory."""
         self._repl.evaluate(f'import os; print(os.rmdir({self.as_posix()!r}))')
+        self._stat_cache = None
+
+    def read_as_stream(self):
+        """yield all parts of a file contents of a remote file as byte string (generator)"""
+        # reading (lines * linesize) must not take more than 1sec and 2kB target RAM!
+        n_blocks = max(1, self._repl.serial.baudrate // 5120)
+        self._repl.exec(
+            f'import ubinascii; _f = open({self.as_posix()!r}, "rb"); _mem = memoryview(bytearray(512))\n'
+            'def _b(blocks=8):\n'
+            '  print("[")\n'
+            '  for _ in range(blocks):\n'
+            '    n = _f.readinto(_mem)\n'
+            '    if not n: break\n'
+            '    print(ubinascii.b2a_base64(_mem[:n]), ",")\n'
+            '  print("]")')
+        while True:
+            blocks = self._repl.evaluate(f'_b({n_blocks})')
+            if not blocks:
+                break
+            yield from [binascii.a2b_base64(block) for block in blocks]
+        self._repl.exec('_f.close(); del _f, _b')
 
     def read_bytes(self) -> bytes:
-        return self._repl.read_from_file(str(self))
+        """Read and return file contents."""
+        return b''.join(self.read_as_stream())
 
     def write_bytes(self, data) -> int:
-        self._repl.write_to_file(self.as_posix(), data)
+        """Overwrite file contents with data (bytes)."""
+        self._stat_cache = None
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError(f'contents must be bytes/bytearray, got {type(data)} instead')
+        self._repl.exec(f'import ubinascii; _f = open({self.as_posix()!r}, "wb")')
+        # write in chunks
+        with io.BytesIO(data) as local_file:
+            while True:
+                block = local_file.read(512)
+                if not block:
+                    break
+                self._repl.exec(f'_f.write(ubinascii.a2b_base64({binascii.b2a_base64(block).rstrip()!r}))')
+        self._repl.exec('_f.close(); del _f')
         return len(data)
 
-    # read_text
+    # read_text(), write_text()
 
     def iterdir(self):
         """
-        Return a list of tuples of filenames and stat info of given remote
-        path.
+        :return: generator over items in directory (MpyPath objects)
+
+        Return iterator over items in given remote path.
         """
         if not self.is_absolute():
             raise ValueError(f'only absolute paths are supported (beginning with "/"): {self!r}')
-        remote_paths = self._repl.evaluate(f'import os; print(os.listdir({self.as_posix()!r}))')
-        return [(self / p).connect_repl(self._repl) for p in remote_paths]
+        # simple version
+        # remote_paths = self._repl.evaluate(f'import os; print(os.listdir({self.as_posix()!r}))')
+        # return [(self / p).connect_repl(self._repl) for p in remote_paths]
+        # variant with pre-loading stat info
+        posix_path_slash = self.as_posix()
+        if not posix_path_slash.endswith('/'):
+            posix_path_slash += '/'
+        remote_paths_stat = self._repl.evaluate(
+            'import os; print("[")\n'
+            f'for n in os.listdir({self.as_posix()!r}): print("[", repr(n), ",", os.stat({posix_path_slash!r} + n), "],")\n'
+            'print("]")')
+        return [(self / p)._with_stat(st).connect_repl(self._repl) for p, st in remote_paths_stat]
 
     def glob(self, pattern: str):
-        """Pattern match files on remote. Returns a list of tuples of name and stat info"""
+        """
+        :return: generator over matches (MpyPath objects)
+
+        Pattern match files on remote. Returns a list of tuples of name and stat info.
+        """
         if pattern.startswith('/'):
             pattern = pattern[1:]   # XXX
         parts = pattern.split('/')
@@ -453,10 +489,10 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
                         yield from path.glob(remaining_parts)
 
 
-def walk(dirpath, topdown=True):
+def walk(dirpath: MpyPath, topdown=True):
     """
-    Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
-    Where dir_st and file_st are lists of MpyPath objects.
+    Recursively scan remote path and yield tuples of (path, dirs, files).
+    Where dirs and files are lists of MpyPath objects.
     """
     dirnames = []
     filenames = []

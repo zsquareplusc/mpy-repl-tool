@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # encoding: utf-8
 #
-# (C) 2016-2020 Chris Liechti <cliechti@gmx.net>
+# (C) 2016-2021 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 import binascii
@@ -9,18 +9,16 @@ import datetime
 import pathlib
 import os
 import sys
-import stat
 import time
-import glob
 import serial.tools.list_ports
 from .speaking import nice_bytes, mode_to_chars
 from .string_escape import escaped
-from . import repl_connection
+from .repl_connection import MicroPythonRepl, MpyPath, walk
 from . import miniterm_mpy
 
 
 class FileCounter:
-    """class to keep track of files processed, e.g. for push or pull operations"""
+    """Class to keep track of files processed, e.g. for push or pull operations"""
 
     def __init__(self):
         self.files = 0
@@ -48,32 +46,32 @@ class UserMessages:
     Provide a class with methods to interact with user. Makes it simpler to
     track verbosity flag.
     """
-    def __init__(self, verbosity):
+    def __init__(self, verbosity: int) -> None:
         self.verbosity = verbosity
         self.file_counter = FileCounter()
 
-    def output_binary(self, message):
+    def output_binary(self, message: str) -> None:
         """output bytes, typically stdout"""
         sys.stdout.buffer.write(message)
         sys.stdout.buffer.flush()
 
-    def output_text(self, message):
+    def output_text(self, message: str) -> None:
         """output text, typically stdout"""
         sys.stdout.write(message)
         sys.stdout.flush()
 
-    def error(self, message):
+    def error(self, message: str) -> None:
         """error messages to stderr"""
         sys.stderr.write(message)
         sys.stderr.flush()
 
-    def notice(self, message):
+    def notice(self, message: str) -> None:
         """informative messages to stderr"""
         if self.verbosity > 0:
             sys.stderr.write(message)
             sys.stderr.flush()
 
-    def info(self, message):
+    def info(self, message: str) -> None:
         """informative messages to stderr, only if verbose flag is set"""
         if self.verbosity > 1:
             sys.stderr.write(message)
@@ -81,21 +79,27 @@ class UserMessages:
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def make_connection(user, args, port=None):
+def make_connection(user: UserMessages, args, port=None):
     """make a connection, port overrides args.port"""
-    m = repl_connection.MicroPythonRepl(port or args.port,
-                                        args.baudrate,
-                                        user=args.user,
-                                        password=args.password)
+    m = MicroPythonRepl(port or args.port,
+                        args.baudrate,
+                        user=args.user,
+                        password=args.password)
     m.protocol.verbose = args.verbose > 2
     user.notice('port {} opened with {} baud\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def expand_pattern(m, path_list):
+def expand_pattern(m: MicroPythonRepl, path_list):
+    """
+    :return: iterator over MpyPath objects
+
+    Expand a list of strings with paths or patterns. The remote connection
+    must be established for working.
+    """
     for pattern_or_path in path_list:
         if '*' in str(pattern_or_path):
-            root = repl_connection.MpyPath('/').connect_repl(m)
+            root = MpyPath('/').connect_repl(m)
             yield from root.glob(str(pattern_or_path))
         else:
             pattern_or_path.connect_repl(m)
@@ -103,6 +107,11 @@ def expand_pattern(m, path_list):
 
 
 def expand_pattern_local(path_list):
+    """
+    :return: iterator over Path objects
+
+    Expand a list of strings with paths or patterns.
+    """
     for pattern_or_path in path_list:
         if '*' in str(pattern_or_path):
             root = pathlib.Path('.')
@@ -111,7 +120,7 @@ def expand_pattern_local(path_list):
             yield pattern_or_path
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def command_detect(user, m, args):
+def command_detect(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Help finding MicroPython boards.
 
@@ -136,7 +145,7 @@ def command_detect(user, m, args):
             user.output_text('{!s}\n'.format(info))
 
 
-def command_run(user, m, args):
+def command_run(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Execute the contents of a (small) file on the target, without saving it to
     the targets file system.
@@ -154,7 +163,8 @@ def command_run(user, m, args):
 
 
 class ListPrinter:
-    def __init__(self, user, long: bool) -> None:
+    """This object can print lists of Path objects in a "ls" style format."""
+    def __init__(self, user: UserMessages, long: bool) -> None:
         self.user = user
         self.long = long
 
@@ -192,7 +202,7 @@ class ListPrinter:
             self.user.output_text(f'{escaped(filename)}\n')
 
 
-def command_ls(user, m, args):
+def command_ls(user: UserMessages, m: MicroPythonRepl, args):
     """\
     List files on the targets file system.
     """
@@ -200,7 +210,7 @@ def command_ls(user, m, args):
     for path in expand_pattern(m, args.PATH):
         if path.is_dir():
             if args.recursive:
-                for dirpath, dirnames, filenames in repl_connection.walk(path):
+                for dirpath, dirnames, filenames in walk(path):
                     user.output_text(f'files in {dirpath.as_posix()}:\n')
                     if dirnames:
                         print_list(dirnames, root=dirpath)
@@ -212,7 +222,7 @@ def command_ls(user, m, args):
             print_list([path])
 
 
-def print_hash(user, path, hash_value):
+def print_hash(user: UserMessages, path, hash_value):
     """output function for hashed file info"""
     user.output_text('{} {}\n'.format(
         binascii.hexlify(hash_value).decode('ascii'),
@@ -220,21 +230,21 @@ def print_hash(user, path, hash_value):
         ))
 
 
-def command_hash(user, m, args):
+def command_hash(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Get hash of files on the targets file system.
     """
     for path in expand_pattern(m, args.PATH):
         if path.is_dir():
             if args.recursive:
-                for dirpath, dirnames, filenames in repl_connection.walk(path):
+                for dirpath, dirnames, filenames in walk(path):
                     for file_path in filenames:
                         print_hash(user, file_path, m.checksum_remote_file(file_path))
         else:
             print_hash(user, path, m.checksum_remote_file(path))
 
 
-def command_cat(user, m, args):
+def command_cat(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Print the contents of a file from the target to stdout.
     """
@@ -243,7 +253,13 @@ def command_cat(user, m, args):
 
 
 class RemoteRemover:
-    def __init__(self, user, dry_run) -> None:
+    """Wrap remove file or directory function with dry-run option"""
+
+    def __init__(self, user: UserMessages, dry_run: bool) -> None:
+        """
+        :param user: UI object
+        :param dry_run: when true, do not actually perform action
+        """
         self.user = user
         self.dry_run = dry_run
 
@@ -261,7 +277,7 @@ class RemoteRemover:
             remote_path.rmdir()
 
 
-def command_rm(user, m, args):
+def command_rm(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Remove files on target.
     """
@@ -269,7 +285,7 @@ def command_rm(user, m, args):
     for path in expand_pattern(m, args.PATH):
         if path.is_dir():
             if args.recursive:
-                for dirpath, dirnames, filenames in repl_connection.walk(path, topdown=False):
+                for dirpath, dirnames, filenames in walk(path, topdown=False):
                     for current_path in filenames:
                         remote_remover.remove_file(current_path)
                     remote_remover.remove_directory(dirpath)
@@ -278,7 +294,8 @@ def command_rm(user, m, args):
     user.file_counter.print_summary(user, 'removed')
 
 
-def command_mkdir(user, m, args):
+def command_mkdir(user: UserMessages, m: MicroPythonRepl, args):
+    """Make a directory remotely"""
     args.PATH.connect_repl(m)
     args.PATH.mkdir(parents=args.parents, exist_ok=args.parents)
 
@@ -289,16 +306,16 @@ EXCLUDE_DIRS = [
 ]
 
 
-def copy_remote_file(user, m, remote_path, local_path, dry_run):
+def copy_remote_file(user: UserMessages, m: MicroPythonRepl, remote_path, local_path, dry_run):
     user.notice(f'{remote_path!s} -> {local_path!s}\n')
     if not dry_run:
         user.file_counter.add_file()
-        m.read_file(remote_path, local_path)
+        local_path.write_bytes(remote_path.read_bytes())
     else:
         user.file_counter.skip_file()
 
 
-def command_pull(user, m, args):
+def command_pull(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Copy file(s) from there to here.
     """
@@ -320,7 +337,7 @@ def command_pull(user, m, args):
         if path.is_dir():
             if args.recursive:
                 root = path.parent
-                for dirpath, dirnames, filenames in repl_connection.walk(path, topdown=False):
+                for dirpath, dirnames, filenames in walk(path, topdown=False):
                     relpath = dirpath.relative_to(root)
                     if not args.dry_run:
                         (dst / dirpath.relative_to(root)).mkdir(exist_ok=True)
@@ -340,7 +357,7 @@ def command_pull(user, m, args):
     user.file_counter.print_summary(user, 'copied', 'already up to date')
 
 
-def push_file(user, m, local_path, remote_path, dry_run, force):
+def push_file(user: UserMessages, m: MicroPythonRepl, local_path, remote_path, dry_run, force):
     """\
     copy a file to the target, if it is not already up to date. check with
     hash if copy is needed
@@ -349,7 +366,7 @@ def push_file(user, m, local_path, remote_path, dry_run, force):
         if force or m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
             user.file_counter.add_file()
             user.notice(f'{local_path!s} -> {remote_path!s}\n')
-            m.write_file(local_path, remote_path)
+            remote_path.write_bytes(local_path.read_bytes())
         else:
             user.file_counter.skip_file()
             user.info(f'{remote_path!s}: already up to date\n')
@@ -358,7 +375,7 @@ def push_file(user, m, local_path, remote_path, dry_run, force):
         user.notice(f'dry run: {local_path!s} -> {remote_path!s}\n')
 
 
-def command_push(user, m, args):
+def command_push(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Copy a file from here to there.
     """
@@ -399,7 +416,7 @@ def command_push(user, m, args):
                         push_file(
                             user, m,
                             dirpath / filename,
-                            dst.joinpath(*relpath, filename),
+                            dst.joinpath(*relpath, filename).connect_repl(dst._repl),
                             args.dry_run, args.force)
             else:
                 user.notice(f'skiping directory: {path!s}\n')
@@ -408,7 +425,7 @@ def command_push(user, m, args):
                 push_file(
                     user, m,
                     path,
-                    dst / path.name,
+                    (dst / path.name).connect_repl(dst._repl),
                     args.dry_run, args.force)
             else:
                 push_file(
@@ -419,7 +436,7 @@ def command_push(user, m, args):
     user.file_counter.print_summary(user, 'copied', 'already up to date')
 
 
-def command_df(user, m, args):
+def command_df(user: UserMessages, m: MicroPythonRepl, args):
     """print filesystem information (size/free)"""
     st = m.statvfs(args.PATH)
     user.output_text('Total Size: {}, used: {}, free: {}\n'.format(
@@ -429,7 +446,7 @@ def command_df(user, m, args):
         ))
 
 
-def command_mount(user, m, args):
+def command_mount(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Mount the target as file system via FUSE.
     """
@@ -448,7 +465,7 @@ def command_mount(user, m, args):
         user.error('ERROR: Could not mount - note: directory must exist\n')
 
 
-def command_rtc(user, m, args):
+def command_rtc(user: UserMessages, m: MicroPythonRepl, args):
     """read the real time clock (RTC)"""
     t1 = m.read_rtc()
     user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t1))
@@ -555,22 +572,22 @@ def main():
     parser_run.set_defaults(func=command_run, connect=True)
 
     parser_ls = subparsers.add_parser('ls', help='list files')
-    parser_ls.add_argument('PATH', nargs='*', type=repl_connection.MpyPath, default=[repl_connection.MpyPath('/')], help='paths to list')
+    parser_ls.add_argument('PATH', nargs='*', type=MpyPath, default=[MpyPath('/')], help='paths to list')
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
     parser_ls.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_ls.set_defaults(func=command_ls, connect=True)
 
     parser_hash = subparsers.add_parser('hash', help='hash files')
-    parser_hash.add_argument('PATH', nargs='*', type=repl_connection.MpyPath, default=[repl_connection.MpyPath('/')], help='paths to list')
+    parser_hash.add_argument('PATH', nargs='*', type=MpyPath, default=[MpyPath('/')], help='paths to list')
     parser_hash.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_hash.set_defaults(func=command_hash, connect=True)
 
     parser_cat = subparsers.add_parser('cat', help='print contents of one file')
-    parser_cat.add_argument('PATH', type=repl_connection.MpyPath, help='filename on target')
+    parser_cat.add_argument('PATH', type=MpyPath, help='filename on target')
     parser_cat.set_defaults(func=command_cat, connect=True)
 
     parser_pull = subparsers.add_parser('pull', help='file(s) to copy from target')
-    parser_pull.add_argument('REMOTE', nargs='+', type=repl_connection.MpyPath, help='one or more source files/directories')
+    parser_pull.add_argument('REMOTE', nargs='+', type=MpyPath, help='one or more source files/directories')
     parser_pull.add_argument('LOCAL', nargs=1, type=pathlib.Path, help='destination directory')
     parser_pull.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_pull.add_argument('--dry-run', action='store_true', help='do not actually copy anything from target')
@@ -578,31 +595,31 @@ def main():
 
     parser_push = subparsers.add_parser('push', help='file(s) to copy onto target')
     parser_push.add_argument('LOCAL', nargs='+', type=pathlib.Path, help='one or more source files/directories')
-    parser_push.add_argument('REMOTE', nargs=1, type=repl_connection.MpyPath, help='destination directory')
+    parser_push.add_argument('REMOTE', nargs=1, type=MpyPath, help='destination directory')
     parser_push.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_push.add_argument('--force', action='store_true', help='write always, skip up-to-date check')
     parser_push.set_defaults(func=command_push, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files from target')
-    parser_rm.add_argument('PATH', nargs='+', type=repl_connection.MpyPath, help='filename on target')
+    parser_rm.add_argument('PATH', nargs='+', type=MpyPath, help='filename on target')
     parser_rm.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
     parser_rm.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
     parser_rm.add_argument('--dry-run', action='store_true', help='do not actually delete anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 
     parser_mkdir = subparsers.add_parser('mkdir', help='create directory')
-    parser_mkdir.add_argument('PATH', type=repl_connection.MpyPath, help='filename on target')
+    parser_mkdir.add_argument('PATH', type=MpyPath, help='filename on target')
     parser_mkdir.add_argument('--parents', action='store_true', help='create parents')   # -p clashes with --port
     parser_mkdir.set_defaults(func=command_mkdir, connect=True)
 
     parser_df = subparsers.add_parser('df', help='Show filesystem information')
-    parser_df.add_argument('PATH', nargs='?', default=repl_connection.MpyPath('/'), type=repl_connection.MpyPath, help='remote path')
+    parser_df.add_argument('PATH', nargs='?', default=MpyPath('/'), type=MpyPath, help='remote path')
     parser_df.set_defaults(func=command_df, connect=True)
 
     parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE')
     parser_mount.add_argument('MOUNTPOINT', help='local mount point, directory must exist')
-    parser_mount.add_argument('--base', type=repl_connection.MpyPath, default=repl_connection.MpyPath('/'), help='base path to mount on remote')
+    parser_mount.add_argument('--base', type=MpyPath, default=MpyPath('/'), help='base path to mount on remote')
     parser_mount.add_argument('-e', '--explore', action='store_true', help='auto open file explorer at mount point')
     parser_mount.set_defaults(func=command_mount, connect=True)
 

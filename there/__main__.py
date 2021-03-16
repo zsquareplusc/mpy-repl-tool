@@ -6,7 +6,7 @@
 # SPDX-License-Identifier:    BSD-3-Clause
 import binascii
 import datetime
-import posixpath
+import pathlib
 import os
 import sys
 import stat
@@ -55,24 +55,29 @@ class UserMessages:
     def output_binary(self, message):
         """output bytes, typically stdout"""
         sys.stdout.buffer.write(message)
+        sys.stdout.buffer.flush()
 
     def output_text(self, message):
         """output text, typically stdout"""
         sys.stdout.write(message)
+        sys.stdout.flush()
 
     def error(self, message):
         """error messages to stderr"""
         sys.stderr.write(message)
+        sys.stderr.flush()
 
     def notice(self, message):
         """informative messages to stderr"""
         if self.verbosity > 0:
             sys.stderr.write(message)
+            sys.stderr.flush()
 
     def info(self, message):
         """informative messages to stderr, only if verbose flag is set"""
         if self.verbosity > 1:
             sys.stderr.write(message)
+            sys.stderr.flush()
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -86,6 +91,24 @@ def make_connection(user, args, port=None):
     user.notice('port {} opened with {} baud\n'.format(m.serial.port, m.serial.baudrate))
     return m
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+def expand_pattern(m, path_list):
+    for pattern_or_path in path_list:
+        if '*' in str(pattern_or_path):
+            root = repl_connection.MpyPath('/').connect_repl(m)
+            yield from root.glob(str(pattern_or_path))
+        else:
+            pattern_or_path.connect_repl(m)
+            yield pattern_or_path
+
+
+def expand_pattern_local(path_list):
+    for pattern_or_path in path_list:
+        if '*' in str(pattern_or_path):
+            root = pathlib.Path('.')
+            yield from root.glob(str(pattern_or_path))
+        else:
+            yield pattern_or_path
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def command_detect(user, m, args):
@@ -130,59 +153,70 @@ def command_run(user, m, args):
         user.output_text(m.exec(code, timeout=args.timeout))
 
 
-def print_long_list(user, files_and_stat, root=None):
-    """output function for the --long format of ls"""
-    for filename, st in files_and_stat:
-        user.output_text('{} {:4} {:4} {:>7} {} {}\n'.format(
-            mode_to_chars(st.st_mode),
-            st.st_uid if st.st_uid is not None else 'NONE',
-            st.st_gid if st.st_gid is not None else 'NONE',
-            nice_bytes(st.st_size),
-            time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime)),
-            escaped(filename) if root is None else escaped(posixpath.join(root, filename))
-            ))
+class ListPrinter:
+    def __init__(self, user, long: bool) -> None:
+        self.user = user
+        self.long = long
 
+    def __call__(self, paths, root=None):
+        if self.long:
+            self.print_long_list(paths, root=root)
+        else:
+            self.print_short_list(paths, root=root)
 
-def print_short_list(user, files_and_stat, root=None):
-    """output function for the short format of ls"""
-    user.output_text('\n'.join(
-        escaped(n) if root is None else escaped(posixpath.join(root, n))
-        for n, st in files_and_stat))
-    user.output_text('\n')
+    def print_long_list(self, paths, root=None):
+        """output function for the --long format of ls"""
+        for path in paths:
+            st = path.stat()
+            if root is not None:
+                filename = path.relative_to(root).as_posix()
+            else:
+                filename = path.as_posix()
+            self.user.output_text('{} {:4} {:4} {:>7} {} {}\n'.format(
+                mode_to_chars(st.st_mode),
+                st.st_uid if st.st_uid is not None else 'NONE',
+                st.st_gid if st.st_gid is not None else 'NONE',
+                nice_bytes(st.st_size),
+                time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime)),
+                escaped(filename)
+                ))
+
+    def print_short_list(self, paths, root=None):
+        """output function for the short format of ls"""
+        for path in paths:
+            path.stat()
+            if root is not None:
+                filename = path.relative_to(root).as_posix()
+            else:
+                filename = path.as_posix()
+            self.user.output_text(f'{escaped(filename)}\n')
 
 
 def command_ls(user, m, args):
     """\
     List files on the targets file system.
     """
-    if args.long:
-        print_list = print_long_list
-    else:
-        print_list = print_short_list
-    paths = sum((list(m.glob(src)) for src in args.PATH), [])
-    if not paths:
-        raise FileNotFoundError(2, 'cannot find: {}'.format(' '.join(args.PATH)))
-    for path, st in paths:
-        if args.recursive:
-            if st.st_mode & stat.S_IFDIR:
-                for dirpath, dir_stat, file_stat in m.walk(path):
-                    print_list(user, file_stat + dir_stat, dirpath)
+    print_list = ListPrinter(user, args.long)
+    for path in expand_pattern(m, args.PATH):
+        if path.is_dir():
+            if args.recursive:
+                for dirpath, dirnames, filenames in repl_connection.walk(path):
+                    user.output_text(f'files in {dirpath.as_posix()}:\n')
+                    if dirnames:
+                        print_list(dirnames, root=dirpath)
+                    if filenames:
+                        print_list(filenames, root=dirpath)
             else:
-                print_list(user, [(path, st)])
+                print_list(path.iterdir())
         else:
-            if st.st_mode & stat.S_IFDIR:
-                print_list(user, m.listdir(path), path)
-            else:
-                print_list(user, [(path, st)])
+            print_list([path])
 
 
-def print_hash(user, path, st, hash_value):
+def print_hash(user, path, hash_value):
     """output function for hashed file info"""
-    user.output_text('{} {:>7} {} {}\n'.format(
+    user.output_text('{} {}\n'.format(
         binascii.hexlify(hash_value).decode('ascii'),
-        nice_bytes(st.st_size),
-        time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime)),
-        escaped(path)
+        escaped(path.as_posix())
         ))
 
 
@@ -190,69 +224,63 @@ def command_hash(user, m, args):
     """\
     Get hash of files on the targets file system.
     """
-    paths = sum((list(m.glob(src)) for src in args.PATH), [])
-    if not paths:
-        raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.PATH)))
-    for path, st in paths:
-        if args.recursive:
-            if st.st_mode & stat.S_IFDIR:
-                for dirpath, dir_stat, file_stat in m.walk(path):
-                    for filename, st in file_stat:
-                        path = posixpath.join(dirpath, filename)
-                        print_hash(user, path, st, m.checksum_remote_file(path))
-            else:
-                print_hash(user, path, st, m.checksum_remote_file(path))
+    for path in expand_pattern(m, args.PATH):
+        if path.is_dir():
+            if args.recursive:
+                for dirpath, dirnames, filenames in repl_connection.walk(path):
+                    for file_path in filenames:
+                        print_hash(user, file_path, m.checksum_remote_file(file_path))
         else:
-            if st.st_mode & stat.S_IFDIR:
-                pass
-            else:
-                print_hash(user, path, st, m.checksum_remote_file(path))
+            print_hash(user, path, m.checksum_remote_file(path))
 
 
 def command_cat(user, m, args):
     """\
     Print the contents of a file from the target to stdout.
     """
-    user.output_binary(m.read_from_file(args.PATH))
+    args.PATH.connect_repl(m)
+    user.output_binary(args.PATH.read_bytes())
 
 
-def remove_remote_file(user, m, remote_path, dry_run):
-    user.info('rm {}\n'.format(remote_path))
-    if not dry_run:
-        user.file_counter.add_file()
-        m.remove(remote_path)
-    else:
-        user.file_counter.skip_file()
+class RemoteRemover:
+    def __init__(self, user, dry_run) -> None:
+        self.user = user
+        self.dry_run = dry_run
 
+    def remove_file(self, remote_path):
+        self.user.info(f'rm {remote_path!s}\n')
+        if not self.dry_run:
+            self.user.file_counter.add_file()
+            remote_path.unlink()
+        else:
+            self.user.file_counter.skip_file()
 
-def remove_remote_directory(user, m, remote_path, dry_run):
-    user.info('rmdir {}\n'.format(remote_path))
-    if not dry_run:
-        m.rmdir(remote_path)
+    def remove_directory(self, remote_path):
+        self.user.info(f'rmdir {remote_path!s}\n')
+        if not self.dry_run:
+            remote_path.rmdir()
 
 
 def command_rm(user, m, args):
     """\
     Remove files on target.
     """
-    for pattern in args.PATH:
-        matches = list(m.glob(pattern))
-        if not matches and not args.force:
-            raise FileNotFoundError(2, 'File not found: {}'.format(pattern))
-        for path, st in matches:
-            if st.st_mode & stat.S_IFDIR:
-                if args.recursive:
-                    for dirpath, dir_stat, file_stat in m.walk(path, topdown=False):
-                        for name, st in dir_stat:
-                            remove_remote_directory(user, m, posixpath.join(dirpath, name), args.dry_run)
-                        for name, st in file_stat:
-                            remove_remote_file(user, m, posixpath.join(dirpath, name), args.dry_run)
-                    remove_remote_directory(user, m, path, args.dry_run)
-                else:
-                    remove_remote_directory(user, m, path, args.dry_run)
-            else:
-                remove_remote_file(user, m, path, args.dry_run)
+    remote_remover = RemoteRemover(user, args.dry_run)
+    for path in expand_pattern(m, args.PATH):
+        if path.is_dir():
+            if args.recursive:
+                for dirpath, dirnames, filenames in repl_connection.walk(path, topdown=False):
+                    for current_path in filenames:
+                        remote_remover.remove_file(current_path)
+                    remote_remover.remove_directory(dirpath)
+        else:
+            remote_remover.remove_file(path)
     user.file_counter.print_summary(user, 'removed')
+
+
+def command_mkdir(user, m, args):
+    args.PATH.connect_repl(m)
+    args.PATH.mkdir(parents=args.parents, exist_ok=args.parents)
 
 
 EXCLUDE_DIRS = [
@@ -261,19 +289,8 @@ EXCLUDE_DIRS = [
 ]
 
 
-def ensure_dir(m, path):
-    """ensure that path is a directory, make directory if needed"""
-    try:
-        st = m.stat(path)
-    except FileNotFoundError:
-        m.mkdir(path)
-    else:
-        if (st.st_mode & stat.S_IFDIR) == 0:
-            raise FileExistsError('there is a file in the way: {}'.format(path))
-
-
 def copy_remote_file(user, m, remote_path, local_path, dry_run):
-    user.notice('{} -> {}\n'.format(remote_path, local_path))
+    user.notice(f'{remote_path!s} -> {local_path!s}\n')
     if not dry_run:
         user.file_counter.add_file()
         m.read_file(remote_path, local_path)
@@ -283,42 +300,41 @@ def copy_remote_file(user, m, remote_path, local_path, dry_run):
 
 def command_pull(user, m, args):
     """\
-    Copy a file from here to there.
+    Copy file(s) from there to here.
     """
     dst = args.LOCAL[0]
-    dst_dir = os.path.isdir(dst)
-    dst_exists = os.path.exists(dst)
+    dst_dir = dst.is_dir()
     # expand the patterns
-    paths = sum((list(m.glob(src)) for src in args.REMOTE), [])
+    paths = list(expand_pattern(m, args.REMOTE))
     if not paths:
         raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.REMOTE)))
     elif len(paths) > 1:
-        if dst_exists:
+        if dst.exists():
             if not dst_dir:
-                raise ValueError('destination must be a directory: {}'.format(dst))
+                raise ValueError(f'destination must be a directory: {dst.as_posix()}')
         else:
             if not args.dry_run:
-                os.makedirs(dst, exist_ok=True)
+                dst.mkdir(exist_ok=True)
             dst_dir = True
-    for path, st in paths:
-        if (st.st_mode & stat.S_IFDIR) != 0:
+    for path in paths:
+        if path.is_dir():
             if args.recursive:
-                root = os.path.dirname(path)
-                for dirpath, dir_stat, file_stat in m.walk(path):
-                    relpath = posixpath.relpath(dirpath, root)
+                root = path.parent
+                for dirpath, dirnames, filenames in repl_connection.walk(path, topdown=False):
+                    relpath = dirpath.relative_to(root)
                     if not args.dry_run:
-                        os.makedirs(os.path.join(dst, relpath), exist_ok=True)
-                    for filename, st in file_stat:
+                        (dst / dirpath.relative_to(root)).mkdir(exist_ok=True)
+                    for filename in filenames:
                         copy_remote_file(
                             user, m,
-                            posixpath.join(dirpath, filename),
-                            os.path.join(dst, relpath, filename),
+                            filename,
+                            dst / filename.relative_to(root),
                             args.dry_run)
             else:
-                user.notice('skiping directory: {}\n'.format(path))
+                user.notice(f'skiping directory: {path!s}\n')
         else:
             if dst_dir:
-                copy_remote_file(user, m, path, os.path.join(dst, posixpath.basename(path)), args.dry_run)
+                copy_remote_file(user, m, path, dst / path.name, args.dry_run)
             else:
                 copy_remote_file(user, m, path, dst, args.dry_run)
     user.file_counter.print_summary(user, 'copied', 'already up to date')
@@ -332,14 +348,14 @@ def push_file(user, m, local_path, remote_path, dry_run, force):
     if not dry_run:
         if force or m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
             user.file_counter.add_file()
-            user.notice('{} -> {}\n'.format(local_path, remote_path))
+            user.notice(f'{local_path!s} -> {remote_path!s}\n')
             m.write_file(local_path, remote_path)
         else:
             user.file_counter.skip_file()
-            user.info('{}: already up to date\n'.format(remote_path))
+            user.info(f'{remote_path!s}: already up to date\n')
     else:
         user.file_counter.skip_file()
-        user.notice('dry run: {} -> {}\n'.format(local_path, remote_path))
+        user.notice(f'dry run: {local_path!s} -> {remote_path!s}\n')
 
 
 def command_push(user, m, args):
@@ -347,31 +363,33 @@ def command_push(user, m, args):
     Copy a file from here to there.
     """
     dst = args.REMOTE[0]
+    dst.connect_repl(m)
     try:
-        dst_dir = (m.stat(dst).st_mode & stat.S_IFDIR) != 0
+        dst_dir = dst.is_dir()
         dst_exists = True
     except FileNotFoundError:
         dst_dir = False
         dst_exists = False
     # expand the patterns for our windows users ;-)
-    paths = sum((glob.glob(src) for src in args.LOCAL), [])
+    paths = list(expand_pattern_local(args.LOCAL))
     if not paths:
         raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.LOCAL)))
     elif len(paths) > 1:
         if not dst_dir:
-            raise ValueError('destination must be a directory: {}'.format(dst))
+            raise ValueError(f'destination must be a directory: {dst!s}')
         if not dst_exists:
-            raise ValueError('destination directory must exist: {}'.format(dst))
+            raise ValueError(f'destination directory must exist: {dst!s}')
     for path in paths:
-        if os.path.isdir(path):
-            if os.path.basename(path) in EXCLUDE_DIRS:
+        if path.is_dir():
+            if path.name in EXCLUDE_DIRS:
                 continue
             if args.recursive:
-                root = os.path.dirname(path)
+                root = path.parent
                 for dirpath, dirnames, filenames in os.walk(path):
-                    relpath = os.path.relpath(dirpath, root).split(os.path.sep)
+                    dirpath = pathlib.Path(dirpath)
+                    relpath = dirpath.relative_to(root).parts
                     if not args.dry_run:
-                        ensure_dir(m, posixpath.join(dst, *relpath))
+                        dst.joinpath(*relpath).connect_repl(dst._repl).mkdir(parents=True, exist_ok=True)
                     for dir in EXCLUDE_DIRS:
                         try:
                             dirnames.remove(dir)
@@ -380,17 +398,17 @@ def command_push(user, m, args):
                     for filename in filenames:
                         push_file(
                             user, m,
-                            os.path.join(dirpath, filename),
-                            posixpath.join(dst, *relpath, filename),
+                            dirpath / filename,
+                            dst.joinpath(*relpath, filename),
                             args.dry_run, args.force)
             else:
-                user.notice('skiping directory: {}\n'.format(path))
+                user.notice(f'skiping directory: {path!s}\n')
         else:
             if dst_dir:
                 push_file(
                     user, m,
                     path,
-                    posixpath.join(dst, os.path.basename(path)),
+                    dst / path.name,
                     args.dry_run, args.force)
             else:
                 push_file(
@@ -424,7 +442,8 @@ def command_mount(user, m, args):
             subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
         user.info('mounting to {}\n'.format(args.MOUNTPOINT))
-        fuse_drive.mount(m, args.MOUNTPOINT, args.verbose)
+        args.base.connect_repl(m)
+        fuse_drive.mount(args.base, args.MOUNTPOINT, args.verbose)
     except RuntimeError:
         user.error('ERROR: Could not mount - note: directory must exist\n')
 
@@ -536,48 +555,54 @@ def main():
     parser_run.set_defaults(func=command_run, connect=True)
 
     parser_ls = subparsers.add_parser('ls', help='list files')
-    parser_ls.add_argument('PATH', nargs='*', default='/', help='paths to list')
+    parser_ls.add_argument('PATH', nargs='*', type=repl_connection.MpyPath, default=[repl_connection.MpyPath('/')], help='paths to list')
     parser_ls.add_argument('-l', '--long', action='store_true', help='show more info')
     parser_ls.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_ls.set_defaults(func=command_ls, connect=True)
 
     parser_hash = subparsers.add_parser('hash', help='hash files')
-    parser_hash.add_argument('PATH', nargs='*', default='/', help='paths to list')
+    parser_hash.add_argument('PATH', nargs='*', type=repl_connection.MpyPath, default=[repl_connection.MpyPath('/')], help='paths to list')
     parser_hash.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
     parser_hash.set_defaults(func=command_hash, connect=True)
 
     parser_cat = subparsers.add_parser('cat', help='print contents of one file')
-    parser_cat.add_argument('PATH', help='filename on target')
+    parser_cat.add_argument('PATH', type=repl_connection.MpyPath, help='filename on target')
     parser_cat.set_defaults(func=command_cat, connect=True)
 
     parser_pull = subparsers.add_parser('pull', help='file(s) to copy from target')
-    parser_pull.add_argument('REMOTE', nargs='+', help='one or more source files/directories')
-    parser_pull.add_argument('LOCAL', nargs=1, help='destination directory')
+    parser_pull.add_argument('REMOTE', nargs='+', type=repl_connection.MpyPath, help='one or more source files/directories')
+    parser_pull.add_argument('LOCAL', nargs=1, type=pathlib.Path, help='destination directory')
     parser_pull.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_pull.add_argument('--dry-run', action='store_true', help='do not actually copy anything from target')
     parser_pull.set_defaults(func=command_pull, connect=True)
 
     parser_push = subparsers.add_parser('push', help='file(s) to copy onto target')
-    parser_push.add_argument('LOCAL', nargs='+', help='one or more source files/directories')
-    parser_push.add_argument('REMOTE', nargs=1, help='destination directory')
+    parser_push.add_argument('LOCAL', nargs='+', type=pathlib.Path, help='one or more source files/directories')
+    parser_push.add_argument('REMOTE', nargs=1, type=repl_connection.MpyPath, help='destination directory')
     parser_push.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_push.add_argument('--force', action='store_true', help='write always, skip up-to-date check')
     parser_push.set_defaults(func=command_push, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files from target')
-    parser_rm.add_argument('PATH', nargs='+', help='filename on target')
+    parser_rm.add_argument('PATH', nargs='+', type=repl_connection.MpyPath, help='filename on target')
     parser_rm.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
     parser_rm.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
     parser_rm.add_argument('--dry-run', action='store_true', help='do not actually delete anything on target')
     parser_rm.set_defaults(func=command_rm, connect=True)
 
+    parser_mkdir = subparsers.add_parser('mkdir', help='create directory')
+    parser_mkdir.add_argument('PATH', type=repl_connection.MpyPath, help='filename on target')
+    parser_mkdir.add_argument('--parents', action='store_true', help='create parents')   # -p clashes with --port
+    parser_mkdir.set_defaults(func=command_mkdir, connect=True)
+
     parser_df = subparsers.add_parser('df', help='Show filesystem information')
-    parser_df.add_argument('PATH', nargs='?', default='/', help='remote path')
+    parser_df.add_argument('PATH', nargs='?', default=repl_connection.MpyPath('/'), type=repl_connection.MpyPath, help='remote path')
     parser_df.set_defaults(func=command_df, connect=True)
 
     parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE')
     parser_mount.add_argument('MOUNTPOINT', help='local mount point, directory must exist')
+    parser_mount.add_argument('--base', type=repl_connection.MpyPath, default=repl_connection.MpyPath('/'), help='base path to mount on remote')
     parser_mount.add_argument('-e', '--explore', action='store_true', help='auto open file explorer at mount point')
     parser_mount.set_defaults(func=command_mount, connect=True)
 
@@ -587,6 +612,9 @@ def main():
 
     namespace, remaining_args = global_options.parse_known_args()
     args = parser.parse_args(remaining_args, namespace=namespace)
+
+    if args.develop:
+        print(args)
 
     user = UserMessages(args.verbose)
 

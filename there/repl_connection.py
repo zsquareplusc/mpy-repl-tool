@@ -25,7 +25,7 @@ import queue
 import io
 import hashlib
 import os
-import posixpath
+import pathlib
 import re
 import stat
 import sys
@@ -67,7 +67,7 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
             if self.verbose:
                 traceback.print_exception(type(exc), exc, exc.__traceback__)
             else:
-                sys.stderr.write('Error accessing serial port: {}\n'.format(exc))
+                sys.stderr.write(f'Error accessing serial port: {exc}\n')
         #~ sys.stderr.write('port closed\n')
 
     def _parse_error(self, text):
@@ -117,10 +117,10 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
                 try:
                     out, err = data.split(b'\x04')
                 except ValueError:
-                    raise IOError('CTRL-D missing in response: {!r}'.format(data))
+                    raise IOError(f'CTRL-D missing in response: {data!r}')
                 # if not out.startswith(b'OK'):
                 if b'OK' not in out:
-                    raise IOError('data was not accepted: {}: {}'.format(out, err))
+                    raise IOError(f'data was not accepted: {out}: {err}')
                 if self.verbose:
                     sys.stderr.write(prefix(out[2:].decode('utf-8'), 'O'))
                     if err:
@@ -135,7 +135,7 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
         out, err = self.exec_raw(string, timeout)
         if err:
             self._parse_error(err)
-            raise IOError('execution failed: {}: {}'.format(out, err))
+            raise IOError(f'execution failed: {out}: {err}')
         return out
 
 
@@ -230,36 +230,6 @@ class MicroPythonRepl(object):
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
 
-    def _override_stat(self, st):
-        # XXX fake some attributes: rw, uid/gid
-        st = list(st)
-        st[stat.ST_MODE] |= 0o660
-        try:
-            st[stat.ST_GID] = os.getgid()
-            st[stat.ST_UID] = os.getuid()
-        except AttributeError:
-            pass  # Windows
-        return st
-
-    def stat(self, path, fake_attrs=False):
-        """return stat information about path on remote"""
-        st = self.evaluate('import os; print(os.stat({!r}))'.format(str(path)))
-        if fake_attrs:
-            st = self._override_stat(st)
-        return os.stat_result(st)
-
-    def remove(self, path):
-        return self.evaluate('import os; print(os.remove({!r}))'.format(str(path)))
-
-    def rename(self, path, path_to):
-        return self.evaluate('import os; print(os.rename({!r}, {!r}))'.format(str(path), str(path_to)))
-
-    def mkdir(self, path):
-        return self.evaluate('import os; print(os.mkdir({!r}))'.format(str(path)))
-
-    def rmdir(self, path):
-        return self.evaluate('import os; print(os.rmdir({!r}))'.format(str(path)))
-
     def read_file(self, path, local_filename):
         """copy a file from remote to local filesystem"""
         with open(local_filename, 'wb') as f:
@@ -281,7 +251,7 @@ class MicroPythonRepl(object):
             '  print("]")'.format(str(path)))
         contents = []
         while True:
-            blocks = self.evaluate('_b({})'.format(n_blocks))
+            blocks = self.evaluate(f'_b({n_blocks})')
             if not blocks:
                 break
             yield from [binascii.a2b_base64(block) for block in blocks]
@@ -359,90 +329,6 @@ class MicroPythonRepl(object):
             '_f.write(b"")\n'
             '_f.close(); del _f'.format(str(path), int(length)))
 
-    def listdir(self, path, fake_attrs=False):
-        """
-        Return a list of tuples of filenames and stat info of given remote
-        path.
-        """
-        if not path.startswith('/'):
-            raise ValueError('only absolute paths are supported (beginning with "/"): {!r}'.format(path))
-        if path == '/':
-            files_and_stat = self.evaluate(
-                'import os; print([(n, os.stat("/" + n)) for n in os.listdir("/")])')
-        else:
-            files_and_stat = self.evaluate(
-                'import os; print([(n, os.stat({path!r} + "/" + n)) for n in os.listdir({path!r})])'.format(path=path))
-        if fake_attrs:
-            files_and_stat = [(n, self._override_stat(st)) for (n, st) in files_and_stat]
-        return [(n, os.stat_result(st)) for (n, st) in files_and_stat]
-
-    def walk(self, dirpath, topdown=True):
-        """
-        Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
-        Where dir_st and file_st are lists of tuples of name and stat info.
-        """
-        dirnames = []
-        filenames = []
-        for name, st in self.listdir(dirpath):
-            if (st.st_mode & stat.S_IFDIR) != 0:
-                dirnames.append((name, st))
-            else:
-                filenames.append((name, st))
-        if topdown:
-            yield dirpath, dirnames, filenames
-            for dirname, st in dirnames:
-                yield from self.walk(posixpath.join(dirpath, dirname))
-        else:
-            for dirname, st in dirnames:
-                yield from self.walk(posixpath.join(dirpath, dirname), topdown=False)
-            yield dirpath, dirnames, filenames
-
-    def glob(self, pattern):
-        """Pattern match files on remote. Returns a list of tuples of name and stat info"""
-        parts = pattern.split('/')
-        if pattern.startswith('/'):
-            parts = parts[1:]
-        if pattern.endswith('/'):
-            parts = parts[:-1]
-        if not parts:
-            yield ('/', self.stat('/'))
-        if len(parts) == 2 and parts[0] == '**':
-            #  include root
-            yield from self._glob('/', parts[1:])
-        # this is the main recursive search
-        if parts:
-            yield from self._glob('/', parts)
-
-    def _glob(self, root, parts):
-        """recursive search yielding matches"""
-        dirnames = []
-        scandirnames = []
-        filenames = []
-        try:
-            for name, st in self.listdir(root):
-                if (st.st_mode & stat.S_IFDIR) != 0:
-                    if len(parts) == 1 and parts[0] != '**' and fnmatch.fnmatch(name, parts[0]):
-                        dirnames.append((name, st))
-                    if parts[0] == '**' or fnmatch.fnmatch(name, parts[0]):
-                        scandirnames.append((name, st))
-                else:
-                    if len(parts) == 1 and parts[0] != '**':
-                        if fnmatch.fnmatch(name, parts[0]):
-                            filenames.append((name, st))
-            if len(parts) > 1:
-                # there are more parts in the pattern, scan subdirectories
-                for dirname, st in scandirnames:
-                    yield from self._glob(posixpath.join(root, dirname), parts[1:])
-                if parts[0] == '**':
-                    # the ** pattern means any depth, so also search with the pattern still included
-                    for dirname, st in scandirnames:
-                        yield from self._glob(posixpath.join(root, dirname), parts[:])
-            else:
-                yield from ((posixpath.join(root, name), st) for name, st in dirnames)
-            yield from ((posixpath.join(root, name), st) for name, st in filenames)
-        except OSError:
-            pass
-
     def read_rtc(self):
         """Read RTC and return a datetime object"""
         year, month, day, weekday, hour, minute, second, subsecond = self.evaluate('import pyb; print(pyb.RTC().datetime())')
@@ -458,3 +344,132 @@ class MicroPythonRepl(object):
             board_time.weekday() + 1,
             255 - (255 * board_time.microsecond) // 999999
         ))
+
+
+def _override_stat(st):
+    # XXX fake some attributes: rw, uid/gid
+    st = list(st)
+    st[stat.ST_MODE] |= 0o660
+    try:
+        st[stat.ST_GID] = os.getgid()
+        st[stat.ST_UID] = os.getuid()
+    except AttributeError:
+        pass  # Windows
+    return st
+
+
+class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
+
+    def connect_repl(self, repl):
+        """Connect object to remote connection"""
+        self._repl = repl
+        return self  # allow method joining
+
+    def stat(self, fake_attrs=False):
+        """return stat information about path on remote"""
+        st = self._repl.evaluate(f'import os; print(os.stat({self.as_posix()!r}))')
+        if fake_attrs:
+            st = _override_stat(st)
+        return os.stat_result(st)
+
+    def exists(self):
+        try:
+            self.stat()
+        except FileNotFoundError:
+            return False
+        else:
+            return True
+
+    def is_dir(self):
+        try:
+            return (self.stat().st_mode & stat.S_IFDIR) != 0
+        except FileNotFoundError:
+            return False
+
+    def is_file(self):
+        try:
+            return (self.stat().st_mode & stat.S_IFREG) != 0
+        except FileNotFoundError:
+            return False
+
+    def unlink(self):
+        self._repl.evaluate(f'import os; print(os.remove({self.as_posix()!r}))')
+
+    def rename(self, path_to):
+        self._repl.evaluate(f'import os; print(os.rename({self.as_posix()!r}, {path_to.as_posix()!r}))')
+        return self.with_name(path_to).connect_repl(self._repl)  # XXX, moves across dirs
+
+    def mkdir(self, parents=False, exist_ok=False):
+        try:
+            return self._repl.evaluate(f'import os; print(os.mkdir({self.as_posix()!r}))')
+        except FileExistsError as e:
+            if exist_ok:
+                pass
+            else:
+                raise
+
+    def rmdir(self):
+        self._repl.evaluate(f'import os; print(os.rmdir({self.as_posix()!r}))')
+
+    def read_bytes(self) -> bytes:
+        return self._repl.read_from_file(str(self))
+
+    def write_bytes(self, data) -> int:
+        self._repl.write_to_file(self.as_posix(), data)
+        return len(data)
+
+    # read_text
+
+    def iterdir(self):
+        """
+        Return a list of tuples of filenames and stat info of given remote
+        path.
+        """
+        if not self.is_absolute():
+            raise ValueError(f'only absolute paths are supported (beginning with "/"): {self!r}')
+        remote_paths = self._repl.evaluate(f'import os; print(os.listdir({self.as_posix()!r}))')
+        return [(self / p).connect_repl(self._repl) for p in remote_paths]
+
+    def glob(self, pattern: str):
+        """Pattern match files on remote. Returns a list of tuples of name and stat info"""
+        if pattern.startswith('/'):
+            pattern = pattern[1:]   # XXX
+        parts = pattern.split('/')
+        # print('glob', self, pattern, parts)
+        if not parts:
+            return
+        elif len(parts) == 1:
+            yield from (p for p in self.iterdir() if p.match(pattern))
+        else:
+            remaining_parts = '/'.join(parts[1:])
+            if parts[0] == '**':
+                for dirpath, dirnames, filenames in walk(self):
+                    for path in filenames:
+                        if path.match(remaining_parts):
+                            yield path
+            else:
+                for path in self.iterdir():
+                    if path.is_dir() and path.relative_to(path.parent).match(parts[0]):  # XXX ?
+                        yield from path.glob(remaining_parts)
+
+
+def walk(dirpath, topdown=True):
+    """
+    Recursively scan remote path and yield tuples of (dirpath, dir_st, file_st).
+    Where dir_st and file_st are lists of MpyPath objects.
+    """
+    dirnames = []
+    filenames = []
+    for path in dirpath.iterdir():
+        if path.is_dir():
+            dirnames.append(path)
+        else:
+            filenames.append(path)
+    if topdown:
+        yield dirpath, dirnames, filenames
+        for dirname in dirnames:
+            yield from walk(dirname)
+    else:
+        for dirname in dirnames:
+            yield from walk(dirname, topdown=False)
+        yield dirpath, dirnames, filenames

@@ -11,6 +11,7 @@ import os
 import sys
 import time
 import serial.tools.list_ports
+from typing import List
 from .speaking import nice_bytes, mode_to_chars
 from .string_escape import escaped
 from .repl_connection import MicroPythonRepl, MpyPath, walk
@@ -90,7 +91,7 @@ def make_connection(user: UserMessages, args, port=None):
     return m
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def expand_pattern(m: MicroPythonRepl, path_list):
+def expand_pattern(m: MicroPythonRepl, path_list: List[str]):
     """
     :return: iterator over MpyPath objects
 
@@ -106,7 +107,7 @@ def expand_pattern(m: MicroPythonRepl, path_list):
             yield pattern_or_path
 
 
-def expand_pattern_local(path_list):
+def expand_pattern_local(path_list: List[str]):
     """
     :return: iterator over Path objects
 
@@ -174,21 +175,21 @@ class ListPrinter:
         else:
             self.print_short_list(paths, root=root)
 
-    def print_long_list(self, paths, root=None):
+    def print_long_list(self, paths: List[MpyPath], root=None):
         """output function for the --long format of ls"""
         for path in paths:
             st = path.stat()
             if root is not None:
-                filename = path.relative_to(root).as_posix()
+                filename = path.relative_to(root)
             else:
-                filename = path.as_posix()
-            self.user.output_text('{} {:4} {:4} {:>7} {} {}\n'.format(
+                filename = path
+            self.user.output_text('{} {:4} {:4}  {:>8}  {} {}\n'.format(
                 mode_to_chars(st.st_mode),
                 st.st_uid if st.st_uid is not None else 'NONE',
                 st.st_gid if st.st_gid is not None else 'NONE',
-                nice_bytes(st.st_size),
+                '-' if path.is_dir() else nice_bytes(st.st_size),
                 time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(st.st_mtime)),
-                escaped(filename)
+                escaped(filename.as_posix())
                 ))
 
     def print_short_list(self, paths, root=None):

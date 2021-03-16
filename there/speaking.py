@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 #
-# (C) 2012-2016 Chris Liechti <cliechti@gmx.net>
+# (C) 2012-2021 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 """\
 Functions to make things human readable.
 """
 import stat
+from math import log10
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -20,23 +21,24 @@ def nice_bytes(value):
     (1kB=1000B as usual for storage devices nowdays).
 
     >>> nice_bytes(1024)
-    '1.0kB'
-    >>> nice_bytes(2e9)
-    '2.0GB'
+    '1.024 kB'
+    >>> nice_bytes(21e9)
+    '21.00 GB'
+    >>> nice_bytes(123e12)
+    '123.0 TB'
     >>> nice_bytes(48)
-    '48B'
+    '48 B'
     """
     if value < 0:
-        raise ValueError('Byte count can not be negative: {}'.format(value))
-    value = float(value)
-    exp = 0
-    while value >= 1000 and exp < len(EXPONENTS):
-        value /= 1000
-        exp += 1
-    if exp:
-        return '{:.1f}{}B'.format(value, EXPONENTS[exp])
+        raise ValueError(f'Byte count can not be negative: {value}')
+    elif value == 0:
+        exp = 0
+        precision = 0
     else:
-        return '{:.0f}B'.format(value)
+        exp = min(int(log10(value) // 3), len(EXPONENTS))
+        value /= 10**(3 *exp)
+        precision = max(1, min(3, 3 - int(log10(value))))
+    return f'{value:.{precision}f} {EXPONENTS[exp]}B'
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

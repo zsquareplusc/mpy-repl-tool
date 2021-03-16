@@ -22,11 +22,13 @@ Features:
 Original idea: Tony D! https://github.com/adafruit/jupyter_micropython_kernel
 """
 import argparse
+import pathlib
 import shlex
 import sys
 import traceback
 from ipykernel.kernelbase import Kernel
 from . import repl_connection
+from .repl_connection import MpyPath
 from . import __main__ as commands
 import serial.tools.list_ports
 
@@ -121,17 +123,17 @@ class MicroPythonKernel(Kernel):
     def meta_ls(self, *str_args):
         #~ self.write('mpy-repl-tool: listdir {}:\n{}'.format(path, self.repl.listdir(path)))
         parser = argparse.ArgumentParser(prog='%ls')
-        parser.add_argument('PATH', nargs='*', default='/', help='paths to list')
+        parser.add_argument('PATH', nargs='*', type=MpyPath, default=[MpyPath('/')], help='paths to list')
         parser.add_argument('-l', '--long', action='store_true', help='show more info')
         parser.add_argument('-r', '--recursive', action='store_true', help='list contents of directories')
-        #~ self.write('mpy-repl-tool: {}\n'.format(str_args))
+        self.write('mpy-repl-tool: {}\n'.format(str_args))
         args = parser.parse_args(str_args)
         commands.command_ls(self, self.repl, args)
 
     def meta_pull(self, *str_args):
         parser = argparse.ArgumentParser(prog='%pull')
-        parser.add_argument('REMOTE', nargs='+', help='one or more source files/directories')
-        parser.add_argument('LOCAL', nargs=1, help='destination directory')
+        parser.add_argument('REMOTE', nargs='+', type=MpyPath, help='one or more source files/directories')
+        parser.add_argument('LOCAL', nargs=1, type=pathlib.Path, help='destination directory')
         parser.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
         parser.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
         args = parser.parse_args(str_args)
@@ -139,8 +141,8 @@ class MicroPythonKernel(Kernel):
 
     def meta_push(self, *str_args):
         parser = argparse.ArgumentParser(prog='%push')
-        parser.add_argument('LOCAL', nargs='+', help='one or more source files/directories')
-        parser.add_argument('REMOTE', nargs=1, help='destination directory')
+        parser.add_argument('LOCAL', nargs='+', type=pathlib.Path, help='one or more source files/directories')
+        parser.add_argument('REMOTE', nargs=1, type=MpyPath, help='destination directory')
         parser.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
         parser.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
         args = parser.parse_args(str_args)
@@ -148,7 +150,7 @@ class MicroPythonKernel(Kernel):
 
     def meta_cat(self, *str_args):
         parser = argparse.ArgumentParser(prog='%cat')
-        parser.add_argument('PATH', help='filename on target')
+        parser.add_argument('PATH', type=MpyPath, help='filename on target')
         args = parser.parse_args(str_args)
         commands.command_cat(self, self.repl, args)
 
@@ -156,11 +158,12 @@ class MicroPythonKernel(Kernel):
         parser = argparse.ArgumentParser(prog='%write')
         parser.add_argument('PATH', help='filename on target')
         args = parser.parse_args(str_args)
-        self.repl.write_to_file(args.PATH, '\n'.join(self.body).encode('utf-8'))
+        remote_path = repl_connection.MpyPath(args.PATH).connect_repl(self.repl)
+        remote_path.write_bytes('\n'.join(self.body).encode('utf-8'))
 
     def meta_rm(self, *str_args):
         parser = argparse.ArgumentParser(prog='%rm')
-        parser.add_argument('PATH', nargs='+', help='filename on target')
+        parser.add_argument('PATH', nargs='+', type=MpyPath, help='filename on target')
         parser.add_argument('-f', '--force', action='store_true', help='delete anyway / no error if not existing')
         parser.add_argument('-r', '--recursive', action='store_true', help='remove directories recursively')
         parser.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')

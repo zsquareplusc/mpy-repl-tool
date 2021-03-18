@@ -271,12 +271,14 @@ def command_push(user: UserMessages, m: MicroPythonRepl, args):
 
 def command_df(user: UserMessages, m: MicroPythonRepl, args):
     """print filesystem information (size/free)"""
-    st = m.statvfs(args.PATH)
-    user.output_text('Total Size: {}, used: {}, free: {}\n'.format(
-        nice_bytes(st.f_bsize * st.f_blocks),
-        nice_bytes(st.f_bsize * (st.f_blocks - st.f_bfree)),
-        nice_bytes(st.f_bsize * st.f_bfree),
-        ))
+    for path in expand_pattern(connect_repl(args.PATH, m)):
+        st = m.statvfs(path)
+        user.output_text('Location: {}  Total Size: {}, used: {}, free: {}\n'.format(
+            path,
+            nice_bytes(st.f_bsize * st.f_blocks),
+            nice_bytes(st.f_bsize * (st.f_blocks - st.f_bfree)),
+            nice_bytes(st.f_bsize * st.f_bfree),
+            ))
 
 
 def command_mount(user: UserMessages, m: MicroPythonRepl, args):
@@ -447,7 +449,7 @@ def main():
     parser_mkdir.set_defaults(func=command_mkdir, connect=True)
 
     parser_df = subparsers.add_parser('df', help='Show filesystem information')
-    parser_df.add_argument('PATH', nargs='?', default=MpyPath('/'), type=MpyPath, help='remote path')
+    parser_df.add_argument('PATH', nargs='+', default=[MpyPath('/')], type=MpyPath, help='remote path')
     parser_df.set_defaults(func=command_df, connect=True)
 
     parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE')

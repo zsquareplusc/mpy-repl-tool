@@ -8,11 +8,6 @@
 Remote code execution and file transfer support module for connections via a
 REPL (Read Eval Print Loop) such as it is usual for MicroPython.
 
-There are also helper functions like glob(), walk() and listdir(). These,
-unlike their counterparts on the host, return tuples of names and stat
-information, not just names. This done to make the data transfer more efficient
-as most higher level operations will need stat info.
-
 Note: The protocol uses MicroPython specific control codes to switch to a raw
 REPL mode, so the current implementation is not generic for any Python REPL!
 """
@@ -196,22 +191,51 @@ class MicroPythonRepl(object):
 
     def exec(self, *args, **kwargs):
         """\
-        Execute the string on the target and return its output.
-        Raise Exception on remote errors.
+        :param str code: code to execute
+        :returns: all output as text
+        :rtype: str
+        :raises IOError: execution failed
+
+        Execute the string and returns the output as string. It may contain
+        multiple lines.
+
+        The executed code should use ``print()`` to construct the answer, e.g.
+        ``print(repr(obj))``. It is also possible to use multiple print statements
+        to construct the response, e.g. to create a list with many entries. As
+        printed lines are transferred immediately and the PC caches the data, it
+        is possible to create very large responses.
+
+        If the target raises an exception, this function will raise an
+        exception too. The type depends on the exception. An ``IOError`` is
+        raised by default, unless the Traceback can be parsed. If an
+        ``OSError`` is recognized it or one of the subclasses
+        (``FileNotFoundError``, ``PermissionError``,  ``FileExistsError``),
+        then that one will be raised instead.
         """
         return self.protocol.exec(*args, **kwargs)
 
     def evaluate(self, string):
         """
-        Execute a string on the target and return its output parsed as python
-        literal. Works for simple constructs such as numbers, lists,
-        dictionaries.
+        :param str code: code to execute
+        :returns: Python object
+
+        Execute the string (just like :meth:`eval`) and return the output
+        parsed using ``ast.literal_eval`` so that numbers, strings, lists etc.
+        can be handled as Python objects.
         """
         return ast.literal_eval(self.exec(string))
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     def soft_reset(self, run_main=True):
+        """
+        :param bool run_main: select if program should be started
+
+        Execute a soft reset of the target. if ``run_main`` is False, then
+        the REPL connection will be maintained and ``main.py`` will not be
+        executed. Otherwise a regular soft reset is made and ``main.py``
+        is executed.
+        """
         if run_main:
             # exit raw REPL for a reset that runs main.py
             self.protocol.transport.write(b'\x03\x03\x02\x04\x01')
@@ -225,7 +249,13 @@ class MicroPythonRepl(object):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     def statvfs(self, path):
-        """return stat information about remote filesystem"""
+        """
+        :param str path: Absolute path on target.
+        :rtype: os.statvfs_result
+
+        Return statvfs information (disk size, free space etc.) about remote
+        filesystem.
+        """
         st = self.evaluate(f'import os; print(os.statvfs({str(path)!r}))')
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
@@ -316,10 +346,16 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
 
     def stat(self, fake_attrs=False) -> os.stat_result:
         """
-        :param fake_attrs: When true, use dummy user and group info.
+        :param bool fake_attrs: When true, use dummy user and group info.
+        :returns: stat information about path on remote
+        :rtype: os.stat_result
+        :raises FileNotFoundError:
 
         Return stat information about path on remote. The information is cached
         to speed up operations.
+
+        If ``fake_attrs`` is true, UID, GID and R/W flags are overridden. This
+        is used for the mount feature.
         """
         if getattr(self, '_stat_cache', None) is None:
             st = self._repl.evaluate(f'import os; print(os.stat({self.as_posix()!r}))')
@@ -352,7 +388,11 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
             return False
 
     def unlink(self):
-        """Delete file"""
+        """
+        :raises FileNotFoundError:
+
+        Delete file. See also :meth:`rmdir`.
+        """
         self._stat_cache = None
         self._repl.evaluate(f'import os; print(os.remove({self.as_posix()!r}))')
 
@@ -360,8 +400,11 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         """
         :param path_to: new name
         :return: new path object
+        :raises FileNotFoundError: Source is not found
+        :raises FileExistsError: Target already exits
 
-        Rename target.
+        Rename file or directory. Source and target path need to be on the same
+        filesystem.
         """
         self._stat_cache = None
         self._repl.evaluate(f'import os; print(os.rename({self.as_posix()!r}, {path_to.as_posix()!r}))')
@@ -371,8 +414,9 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         """
         :param parents: When true, create parent directories
         :param exist_ok: No error if the directory does not exist
+        :raises FileNotFoundError:
 
-        Create directory.
+        Create new directory.
         """
         try:
             return self._repl.evaluate(f'import os; print(os.mkdir({self.as_posix()!r}))')
@@ -383,12 +427,21 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
                 raise
 
     def rmdir(self):
-        """Remove directory."""
+        """
+        :raises FileNotFoundError:
+
+        Remove (empty) directory
+        """
         self._repl.evaluate(f'import os; print(os.rmdir({self.as_posix()!r}))')
         self._stat_cache = None
 
     def read_as_stream(self):
-        """yield all parts of a file contents of a remote file as byte string (generator)"""
+        """
+        :returns: Iterator
+        :rtype: Iterator of bytes
+
+        Iterate over blocks (`bytes`) of a remote file.
+        """
         # reading (lines * linesize) must not take more than 1sec and 2kB target RAM!
         n_blocks = max(1, self._repl.serial.baudrate // 5120)
         self._repl.exec(
@@ -408,11 +461,20 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         self._repl.exec('_f.close(); del _f, _b')
 
     def read_bytes(self) -> bytes:
-        """Read and return file contents."""
+        """
+        :returns: file contents
+        :rtype: bytes
+
+        Return the contents of a remote file as byte string.
+        """
         return b''.join(self.read_as_stream())
 
     def write_bytes(self, data) -> int:
-        """Overwrite file contents with data (bytes)."""
+        """
+        :param bytes contents: Data
+
+        Write contents (expected to be bytes) to a file on the target.
+        """
         self._stat_cache = None
         if not isinstance(data, (bytes, bytearray)):
             raise TypeError(f'contents must be bytes/bytearray, got {type(data)} instead')
@@ -431,9 +493,13 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
 
     def iterdir(self):
         """
+        :param bool fake_attrs: override uid and gid in stat
         :return: generator over items in directory (MpyPath objects)
 
         Return iterator over items in given remote path.
+
+        If ``fake_attrs`` is true, UID, GID and R/W flags are overridden. This
+        is used for the mount feature.
         """
         if not self.is_absolute():
             raise ValueError(f'only absolute paths are supported (beginning with "/"): {self!r}')
@@ -452,9 +518,10 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
 
     def glob(self, pattern: str):
         """
+        :param str pattern: string with optional wildcards.
         :return: generator over matches (MpyPath objects)
 
-        Pattern match files on remote. Returns a list of tuples of name and stat info.
+        Pattern match files on remote.
         """
         if pattern.startswith('/'):
             pattern = pattern[1:]   # XXX
@@ -479,7 +546,12 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
     # custom extension methods
 
     def sha256(self):
-        """Return a checksum over the contents of a remote file"""
+        """
+        :returns: hash over file contents
+        :rtype: bytes
+
+        Calculate a SHA256 over the file contents and return the digest.
+        """
         try:
             self._repl.exec(
                 'import uhashlib; _h = uhashlib.sha256(); _mem = memoryview(bytearray(512))\n'

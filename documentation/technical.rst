@@ -4,204 +4,33 @@
 
 REPL connection
 ===============
-``repl_connection.py`` implements a Protocol_ for pySerial_ so that statements
+:mod:`there.repl_connection` implements a Protocol_ for pySerial_ so that statements
 can be executed on a remote Python prompt (REPL). MicroPython_ has a special
 "machine mode" where it does not echo input and clearly marks the output and
 error response, so that it is easy to parse with a machine.
 
-The class :class:`MicroPythonRepl` provides two functions for remote code
-execution:
+The class :class:`there.repl_connection.MicroPythonRepl` provides two functions
+for remote code execution. :class:`MpyPath` is an :class:`pathlib.Path` like
+object that performs operations on remote files.
 
 
-.. class:: MicroPythonRepl
+.. autoclass:: there.repl_connection.MicroPythonRepl
+    :members:
+    :undoc-members:
 
-    .. method:: exec(code)
+.. autoclass:: there.repl_connection.MpyPath
+    :members:
+    :undoc-members:
 
-        :param str code: code to execute
-        :returns: all output as text
-        :rtype: str
-        :raises IOError: execution failed
 
-        Execute the string and returns the output as string. It may contain
-        multiple lines.
+Sync functionality
+==================
+The command line tool implements push and pull commands that sync files.
+The underlying logic is available in the sync module.
 
-        The executed code should use ``print()`` to construct the answer, e.g.
-        ``print(repr(obj))``. It is also possible to use multiple print statements
-        to construct the response, e.g. to create a list with many entries. As
-        printed lines are transferred immediately and the PC caches the data, it
-        is possible to create very large responses.
-
-        If the target raises an exception, this function will raise an
-        exception too. The type depends on the exception. An ``IOError`` is
-        raised by default, unless the Traceback can be parsed. If an
-        ``OSError`` is recognized it or one of the subclasses
-        (``FileNotFoundError``, ``PermissionError``,  ``FileExistsError``),
-        then that one will be raised instead.
-
-
-    .. method:: evaluate(code)
-
-        :param str code: code to execute
-        :returns: Python object
-
-        Execute the string (just like :meth:`eval`) and return the output
-        parsed using ``ast.literal_eval`` so that numbers, strings, lists etc.
-        can be handled as Python objects.
-
-
-    :class:`MicroPythonRepl` has additional helper methods to list, read
-    and write files.
-
-
-    .. method:: statvfs(path)
-
-        :param str path: Absolute path on target.
-        :rtype: os.statvfs_result
-
-        Return statvfs information (disk size, free space etc.) about remote
-        filesystem.
-
-    .. method:: stat(path, fake_attrs=False)
-
-        :param str path: Absolute path on target.
-        :param bool fake_attrs: override uid and gid in stat
-        :returns: stat information about path on remote
-        :rtype: os.stat_result
-        :raises FileNotFoundError:
-
-        Return stat info for given path.
-
-        If ``fake_attrs`` is true, UID, GID and R/W flags are overriden. This
-        is used for the mount feature.
-
-    .. method:: remove(path)
-
-        :param str path: Absolute path on target.
-        :raises FileNotFoundError:
-
-        Delete one file. See also :meth:`rmdir`.
-
-    .. method:: rename(source, target)
-
-        :param str source: Absolute path on target.
-        :param str target: Absolute path on target.
-        :raises FileNotFoundError: Source is not found
-        :raises FileExistsError: Target already exits
-
-        Rename file or directory. Source and target path need to be on the same
-        filesystem.
-
-    .. method:: mkdir(path)
-
-        :param str path: Absolute path on target.
-        :raises FileNotFoundError:
-
-        Create new directory.
-
-    .. method:: rmdir( path)
-
-        :param str path: Absolute path on target.
-        :raises FileNotFoundError:
-
-        Remove (empty) directory
-
-    .. method:: read_file(path, local_filename)
-
-        :param str path: Absolute path on target.
-        :param str local_filename: Path to local file
-        :raises FileNotFoundError:
-
-        Copy a file from remote to local filesystem.
-
-    .. method:: read_from_file(path)
-
-        :param str path: Absolute path on target.
-        :returns: file contents
-        :rtype: bytes
-
-        Return the contents of a remote file as byte string.
-
-    .. method:: read_from_file_stream(path)
-
-        :param str path: Absolute path on target.
-        :returns: Iterator
-        :rtype: Iterator of bytes
-
-        Iterate over blocks (`bytes`) of a remote file.
-
-    .. method:: write_file(local_filename, path)
-
-        :param str local_filename: Path to local file
-        :param str path: Absolute path on target.
-
-        Copy a file from local to remote filesystem.
-
-    .. method:: write_to_file(path, contents)
-
-        :param str path: Absolute path on target.
-        :param bytes contents: Data
-
-        Write contents (expected to be bytes) to a file on the target.
-
-    .. method:: checksum_remote_file(path)
-
-        :param str path: Absolute path on target.
-        :returns: hash over file contents
-        :rtype: bytes
-
-        Calculate a SHA256 over the file contents and return the digest.
-
-    .. method:: checksum_local_file(local_filename)
-
-        :param str local_filename: Path to local file
-        :returns: hash over file contents
-        :rtype: bytes
-
-        Calculate a SHA256 over the file contents and return the digest.
-
-
-    .. method:: listdir(path, fake_attrs=False)
-
-        :param str path: Absolute path on target.
-        :param bool fake_attrs: override uid and gid in stat
-
-        Return a list of tuples of filenames and stat info of given remote
-        path.
-
-        If ``fake_attrs`` is true, UID, GID and R/W flags are overriden. This
-        is used for the mount feature.
-
-    .. method:: walk(topdir, topdown=True)
-
-        :param str topdir: Absolute path on target.
-        :param bool topdown: Reverse order.
-        :return: iterator over tuples ``(root, dirs, files)`` where ``dirs``
-                 and ``files`` are lists of tuples containing
-                 ``(name, stat_result)``
-
-        Recursively scan remote path and yield all items that are found.
-
-        If ``topdown`` is true then the top directory is yielded as first item,
-        if it is false, then the sub-directories are yielded first.
-
-        If ``topdown`` is true, it is allowed to remove items from the ``dirs``
-        list, so that they are not searched.
-
-    .. method:: glob(pattern)
-
-        :param str pattern: Absolute path on target containing wildcards.
-        :return: iterator over ``(name, stat_result)`` items that match the pattern
-
-        :mod:`fnmatch` is used to evalute the pattern.
-
-    .. method:: soft_reset(run_main=True)
-
-        :param bool run_main: select if program should be started
-
-        Execute a soft reset of the target. if ``run_main`` is False, then
-        the REPL connection will be maintained and ``main.py`` will not be
-        executed. Otherwise a regular soft reset is made and ``main.py``
-        is executed.
+.. autoclass:: there.sync.Sync
+    :members:
+    :undoc-members:
 
 
 Mount Action

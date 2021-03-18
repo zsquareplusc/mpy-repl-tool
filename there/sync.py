@@ -38,7 +38,7 @@ class Sync:
         self.dry_run = dry_run
         self.force = force
 
-    def hash_path(self, path):
+    def _hash_path(self, path):
         """Return a sha256 hash over the contents of a file"""
         if isinstance(path, MpyPath):
             return path.sha256()
@@ -63,7 +63,7 @@ class Sync:
             # support target being a directory (or a file)
             if destination_path.is_dir():
                 destination_path = destination_path / source_path.name
-            if self.force or self.hash_path(source_path) != self.hash_path(destination_path):
+            if self.force or self._hash_path(source_path) != self._hash_path(destination_path):
                 self.user.file_counter.add_file()
                 self.user.notice(f'{source_path!s} -> {destination_path!s}\n')
                 destination_path.write_bytes(source_path.read_bytes())
@@ -75,7 +75,7 @@ class Sync:
             self.user.notice(f'dry run: {source_path!s} -> {destination_path!s}\n')
 
 
-    def sync_dir(self, source_path: Union[Path, MpyPath], destination_path: Union[Path, MpyPath], recursive=True):
+    def sync_directory(self, source_path: Union[Path, MpyPath], destination_path: Union[Path, MpyPath], recursive=True):
         """\
         Copy a directory from source to destination. Can be local or remote.
         """

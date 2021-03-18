@@ -11,11 +11,22 @@ MpyPath objects.
 
 def walk(dirpath, topdown=True):
     """
+    :param str dirpath:Path to start search.
+    :param bool topdown: Reverse order.
+    :return: iterator over tuples ``(root, dirs, files)`` where ``dirs``
+                and ``files`` are lists of Path/MpyPath objects
+
     Recursively scan local or remote path and yield tuples of (path, dirs, files).
     Where dirs and files are lists of Path/MpyPath objects.
 
     This function works locally with pathlib.Path as dirpath or remotely with
     MpyPath as dirpath (must be connected to target).
+
+    If ``topdown`` is true then the top directory is yielded as first item,
+    if it is false, then the sub-directories are yielded first.
+
+    If ``topdown`` is true, it is allowed to remove items from the ``dirs``
+    list, so that they are not searched.
     """
     dirnames = []
     filenames = []

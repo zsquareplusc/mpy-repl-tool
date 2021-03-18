@@ -246,6 +246,22 @@ The action can also be combined with ``--command`` and
 output.
 
 
+``mkdir``
+---------
+Create new directory.
+
+::
+
+  usage: there mkdir [-h] [--parents] PATH [PATH ...]
+
+  positional arguments:
+    PATH        filename on target
+
+  optional arguments:
+    -h, --help  show this help message and exit
+    --parents   create parents
+
+
 ``hash``
 --------
 Generate and print a SHA256 hash for each file given.
@@ -260,6 +276,21 @@ Generate and print a SHA256 hash for each file given.
     optional arguments:
       -h, --help       show this help message and exit
       -r, --recursive  list contents of directories
+
+
+``df``
+------
+Show file system info.
+
+::
+
+  usage: theredf [-h] [PATH [PATH ...]]
+
+  positional arguments:
+    PATH        remote path
+
+  optional arguments:
+    -h, --help  show this help message and exit
 
 
 ``mount``

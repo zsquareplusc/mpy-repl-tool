@@ -212,8 +212,8 @@ def command_rm(user: UserMessages, m: MicroPythonRepl, args):
 
 def command_mkdir(user: UserMessages, m: MicroPythonRepl, args):
     """Make a directory remotely"""
-    args.PATH.connect_repl(m)
-    args.PATH.mkdir(parents=args.parents, exist_ok=args.parents)
+    for path in expand_pattern(connect_repl(args.PATH, m)):
+        path.mkdir(parents=args.parents, exist_ok=args.parents)
 
 
 def command_pull(user: UserMessages, m: MicroPythonRepl, args):
@@ -237,7 +237,7 @@ def command_pull(user: UserMessages, m: MicroPythonRepl, args):
         if path.is_dir():
             if path.name in EXCLUDE_DIRS:
                 continue
-            sync.sync_dir(path, dst, recursive=args.recursive)
+            sync.sync_directory(path, dst, recursive=args.recursive)
         else:
             sync.sync_file(path, dst)
     user.file_counter.print_summary('copied', 'already up to date')
@@ -263,7 +263,7 @@ def command_push(user: UserMessages, m: MicroPythonRepl, args):
         if path.is_dir():
             if path.name in EXCLUDE_DIRS:
                 continue
-            sync.sync_dir(path, dst, recursive=args.recursive)
+            sync.sync_directory(path, dst, recursive=args.recursive)
         else:
             sync.sync_file(path, dst)
     user.file_counter.print_summary('copied', 'already up to date')
@@ -444,12 +444,12 @@ def main():
     parser_rm.set_defaults(func=command_rm, connect=True)
 
     parser_mkdir = subparsers.add_parser('mkdir', help='create directory')
-    parser_mkdir.add_argument('PATH', type=MpyPath, help='filename on target')
+    parser_mkdir.add_argument('PATH', nargs='+', type=MpyPath, help='filename on target')
     parser_mkdir.add_argument('--parents', action='store_true', help='create parents')   # -p clashes with --port
     parser_mkdir.set_defaults(func=command_mkdir, connect=True)
 
     parser_df = subparsers.add_parser('df', help='Show filesystem information')
-    parser_df.add_argument('PATH', nargs='+', default=[MpyPath('/')], type=MpyPath, help='remote path')
+    parser_df.add_argument('PATH', nargs='*', default=[MpyPath('/')], type=MpyPath, help='remote path')
     parser_df.set_defaults(func=command_df, connect=True)
 
     parser_mount = subparsers.add_parser('mount', help='Make target files accessible via FUSE')

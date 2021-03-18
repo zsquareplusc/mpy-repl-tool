@@ -478,7 +478,7 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         self._stat_cache = None
         if not isinstance(data, (bytes, bytearray)):
             raise TypeError(f'contents must be bytes/bytearray, got {type(data)} instead')
-        self._repl.exec(f'import ubinascii.a2b_base64 as a2b; _f = open({self.as_posix()!r}, "wb")')
+        self._repl.exec(f'from ubinascii import a2b_base64 as a2b; _f = open({self.as_posix()!r}, "wb")')
         # write in chunks
         with io.BytesIO(data) as local_file:
             while True:

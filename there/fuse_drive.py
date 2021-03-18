@@ -54,7 +54,7 @@ class ReplFileTransfer(Operations):
         # XXX currently there is no cleanup of old entries in those caches
 
     def _remote(self, path):
-        return (self.remote_path / path[1:]).connect_repl(self.remote_path._repl)
+        return self.remote_path / path[1:]
 
     # file system methods
 

@@ -20,7 +20,6 @@ import builtins
 import ast
 import binascii
 import datetime
-import fnmatch
 import queue
 import io
 import hashlib
@@ -34,6 +33,7 @@ import traceback
 import serial
 import serial.threaded
 from . import os_error_list
+from .walk import walk
 
 
 # match "OSError: [Errno 2] ENOENT" and "OSError: 2"
@@ -226,55 +226,17 @@ class MicroPythonRepl(object):
 
     def statvfs(self, path):
         """return stat information about remote filesystem"""
-        st = self.evaluate('import os; print(os.statvfs({!r}))'.format(str(path)))
+        st = self.evaluate(f'import os; print(os.statvfs({str(path)!r}))')
         return os.statvfs_result(st)
         #~ f_bsize, f_frsize, f_blocks, f_bfree, f_bavail, f_files, f_ffree, f_favail, f_flag, f_namemax
-
-    def checksum_remote_file(self, path):
-        """Return a checksum over the contents of a remote file"""
-        try:
-            self.exec(
-                'import uhashlib; _h = uhashlib.sha256(); _mem = memoryview(bytearray(512))\n'
-                '_f = open({!r}, "rb")\n'
-                'while True:\n'
-                '  n = _f.readinto(_mem)\n'
-                '  if not n: break\n'
-                '  _h.update(_mem[:n])\n'
-                '_f.close(); del n, _f, _mem\n'.format(str(path)))
-        except ImportError:
-            # fallback if no hashlib is available, upload and hash here. silly...
-            try:
-                _h = hashlib.sha256()
-                for block in path.read_as_stream():
-                    _h.update(block)
-                return _h.digest()
-            except FileNotFoundError:
-                return b''
-        except OSError:
-            hash_value = b''
-        else:
-            hash_value = self.evaluate('print(_h.digest())')
-        self.exec('del _h')
-        return hash_value
-
-    def checksum_local_file(self, path):
-        """Return a checksum over the contents of a file"""
-        _h = hashlib.sha256()
-        with open(path, 'rb') as f:
-            while True:
-                block = f.read(512)
-                if not block:
-                    break
-                _h.update(block)
-        return _h.digest()
 
     def truncate(self, path, length):
         # MicroPython 1.9.3 has no file.truncate(), but open(...,"ab"); write(b"") seems to work.
         return self.evaluate(
-            '_f = open({!r}, "ab")\n'
-            'print(_f.seek({}))\n'
+            f'_f = open({str(path)!r}, "ab")\n'
+            f'print(_f.seek({int(length)}))\n'
             '_f.write(b"")\n'
-            '_f.close(); del _f'.format(str(path), int(length)))
+            '_f.close(); del _f')
 
     def read_rtc(self):
         """Read RTC and return a datetime object"""
@@ -325,6 +287,32 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
     def _with_stat(self, st):
         self._stat_cache = os.stat_result(st)
         return self
+
+    # methods to override to connect to repl
+
+    def with_name(self, name):
+        return super().with_name(name).connect_repl(self._repl)
+
+    def with_suffix(self, suffix):
+        return super().with_suffix(suffix).connect_repl(self._repl)
+
+    def relative_to(self, *other):
+        return super().relative_to(*other).connect_repl(self._repl)
+
+    def joinpath(self, *args):
+        return super().joinpath(*args).connect_repl(self._repl)
+
+    def __truediv__(self, key):
+        return super().__truediv__(key).connect_repl(self._repl)
+
+    def __rtruediv__(self, key):
+        return super().__rtruediv__(key).connect_repl(self._repl)
+
+    @property
+    def parent(self):
+        return super().parent.connect_repl(self._repl)
+
+    # methods that access files
 
     def stat(self, fake_attrs=False) -> os.stat_result:
         """
@@ -377,14 +365,14 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         """
         self._stat_cache = None
         self._repl.evaluate(f'import os; print(os.rename({self.as_posix()!r}, {path_to.as_posix()!r}))')
-        return self.with_name(path_to).connect_repl(self._repl)  # XXX, moves across dirs
+        return self.with_name(path_to)  # XXX, moves across dirs
 
     def mkdir(self, parents=False, exist_ok=False):
         """
         :param parents: When true, create parent directories
         :param exist_ok: No error if the directory does not exist
 
-        Create duirectory.
+        Create directory.
         """
         try:
             return self._repl.evaluate(f'import os; print(os.mkdir({self.as_posix()!r}))')
@@ -428,15 +416,15 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         self._stat_cache = None
         if not isinstance(data, (bytes, bytearray)):
             raise TypeError(f'contents must be bytes/bytearray, got {type(data)} instead')
-        self._repl.exec(f'import ubinascii; _f = open({self.as_posix()!r}, "wb")')
+        self._repl.exec(f'import ubinascii.a2b_base64 as a2b; _f = open({self.as_posix()!r}, "wb")')
         # write in chunks
         with io.BytesIO(data) as local_file:
             while True:
                 block = local_file.read(512)
                 if not block:
                     break
-                self._repl.exec(f'_f.write(ubinascii.a2b_base64({binascii.b2a_base64(block).rstrip()!r}))')
-        self._repl.exec('_f.close(); del _f')
+                self._repl.exec(f'_f.write(a2b({binascii.b2a_base64(block).rstrip()!r}))')
+        self._repl.exec('_f.close(); del _f, a2b')
         return len(data)
 
     # read_text(), write_text()
@@ -460,7 +448,7 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
             'import os; print("[")\n'
             f'for n in os.listdir({self.as_posix()!r}): print("[", repr(n), ",", os.stat({posix_path_slash!r} + n), "],")\n'
             'print("]")')
-        return [(self / p)._with_stat(st).connect_repl(self._repl) for p, st in remote_paths_stat]
+        return [(self / p)._with_stat(st) for p, st in remote_paths_stat]
 
     def glob(self, pattern: str):
         """
@@ -488,24 +476,30 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
                     if path.is_dir() and path.relative_to(path.parent).match(parts[0]):  # XXX ?
                         yield from path.glob(remaining_parts)
 
+    # custom extension methods
 
-def walk(dirpath: MpyPath, topdown=True):
-    """
-    Recursively scan remote path and yield tuples of (path, dirs, files).
-    Where dirs and files are lists of MpyPath objects.
-    """
-    dirnames = []
-    filenames = []
-    for path in dirpath.iterdir():
-        if path.is_dir():
-            dirnames.append(path)
+    def sha256(self):
+        """Return a checksum over the contents of a remote file"""
+        try:
+            self._repl.exec(
+                'import uhashlib; _h = uhashlib.sha256(); _mem = memoryview(bytearray(512))\n'
+                f'with open({self.as_posix()!r}, "rb") as _f:\n'
+                '  while True:\n'
+                '    n = _f.readinto(_mem)\n'
+                '    if not n: break\n'
+                '    _h.update(_mem[:n])\n'
+                'del n, _f, _mem\n')
+        except ImportError:
+            # fallback if no hashlib is available, upload and hash here. silly...
+            try:
+                _h = hashlib.sha256()
+                for block in self.read_as_stream():
+                    _h.update(block)
+                return _h.digest()
+            except FileNotFoundError:
+                return b''
+        except OSError:
+            hash_value = b''
         else:
-            filenames.append(path)
-    if topdown:
-        yield dirpath, dirnames, filenames
-        for dirname in dirnames:
-            yield from walk(dirname)
-    else:
-        for dirname in dirnames:
-            yield from walk(dirname, topdown=False)
-        yield dirpath, dirnames, filenames
+            hash_value = self._repl.evaluate('print(_h.digest()); del _h')
+        return hash_value

@@ -11,114 +11,58 @@ import os
 import sys
 import time
 import serial.tools.list_ports
-from typing import List
-from .speaking import nice_bytes, mode_to_chars
+from typing import List, Union
+from .speaking import nice_bytes, mode_to_chars, UserMessages
 from .string_escape import escaped
-from .repl_connection import MicroPythonRepl, MpyPath, walk
+from .repl_connection import MicroPythonRepl, MpyPath
+from .walk import walk
+from .sync import Sync, EXCLUDE_DIRS
 from . import miniterm_mpy
 
-
-class FileCounter:
-    """Class to keep track of files processed, e.g. for push or pull operations"""
-
-    def __init__(self):
-        self.files = 0
-        self.skipped = 0
-
-    def add_file(self):
-        self.files += 1
-
-    def skip_file(self):
-        self.skipped += 1
-
-    def print_summary(self, user, action_verb, skipped_verb='skipped'):
-        message = [
-            '{files} files {action_verb}'.format(files=self.files, action_verb=action_verb)
-        ]
-        if self.skipped:
-            message.append('{skipped} {skipped_verb}'.format(
-                skipped=self.skipped,
-                skipped_verb=skipped_verb))
-        user.notice('{}\n'.format(', '.join(message)))
-
-
-class UserMessages:
-    """
-    Provide a class with methods to interact with user. Makes it simpler to
-    track verbosity flag.
-    """
-    def __init__(self, verbosity: int) -> None:
-        self.verbosity = verbosity
-        self.file_counter = FileCounter()
-
-    def output_binary(self, message: str) -> None:
-        """output bytes, typically stdout"""
-        sys.stdout.buffer.write(message)
-        sys.stdout.buffer.flush()
-
-    def output_text(self, message: str) -> None:
-        """output text, typically stdout"""
-        sys.stdout.write(message)
-        sys.stdout.flush()
-
-    def error(self, message: str) -> None:
-        """error messages to stderr"""
-        sys.stderr.write(message)
-        sys.stderr.flush()
-
-    def notice(self, message: str) -> None:
-        """informative messages to stderr"""
-        if self.verbosity > 0:
-            sys.stderr.write(message)
-            sys.stderr.flush()
-
-    def info(self, message: str) -> None:
-        """informative messages to stderr, only if verbose flag is set"""
-        if self.verbosity > 1:
-            sys.stderr.write(message)
-            sys.stderr.flush()
-
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def make_connection(user: UserMessages, args, port=None):
+def make_connection(user: UserMessages, args, port=None) -> MicroPythonRepl:
     """make a connection, port overrides args.port"""
     m = MicroPythonRepl(port or args.port,
                         args.baudrate,
                         user=args.user,
                         password=args.password)
     m.protocol.verbose = args.verbose > 2
-    user.notice('port {} opened with {} baud\n'.format(m.serial.port, m.serial.baudrate))
+    user.notice(f'port {m.serial.port} opened with {m.serial.baudrate} baud\n')
     return m
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def expand_pattern(m: MicroPythonRepl, path_list: List[str]):
-    """
-    :return: iterator over MpyPath objects
-
-    Expand a list of strings with paths or patterns. The remote connection
-    must be established for working.
-    """
-    for pattern_or_path in path_list:
-        if '*' in str(pattern_or_path):
-            root = MpyPath('/').connect_repl(m)
-            yield from root.glob(str(pattern_or_path))
-        else:
-            pattern_or_path.connect_repl(m)
-            yield pattern_or_path
+def connect_repl(path_list: List[MpyPath], m: MicroPythonRepl) -> List[MpyPath]:
+    for path in path_list:
+        path.connect_repl(m)
+        # there is no "current directory" concept for remote path, force them to be absolute
+        if not path.is_absolute():
+            path = MpyPath('/').connect_repl(m) / path
+        yield path
 
 
-def expand_pattern_local(path_list: List[str]):
+def is_pattern(path_string: str):
+    return '*' in path_string or '?' in path_string or '[' in path_string
+
+
+def expand_pattern(path_list: List[Union[pathlib.Path, MpyPath]]):
     """
     :return: iterator over Path objects
 
     Expand a list of strings with paths or patterns.
+
+    For MpyPath objects, the remote connection must be established for working.
     """
-    for pattern_or_path in path_list:
-        if '*' in str(pattern_or_path):
-            root = pathlib.Path('.')
-            yield from root.glob(str(pattern_or_path))
+    for path in path_list:
+        if is_pattern(str(path)):
+            # snip away until pattern is gone so that we have a base directory to use glob
+            root = path.parent
+            while root and is_pattern(str(root)):
+                root = root.parent
+            path = path.relative_to(root)
+            yield from root.glob(str(path))
         else:
-            yield pattern_or_path
+            yield path
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def command_detect(user: UserMessages, m: MicroPythonRepl, args):
@@ -141,9 +85,9 @@ def command_detect(user: UserMessages, m: MicroPythonRepl, args):
                     m.close()
             except Exception as e:
                 mpy_info = str(e)
-            user.output_text('{!s}: {}\n'.format(info, mpy_info))
+            user.output_text(f'{info!s}: {mpy_info}\n')
         else:
-            user.output_text('{!s}\n'.format(info))
+            user.output_text(f'{info!s}\n')
 
 
 def command_run(user: UserMessages, m: MicroPythonRepl, args):
@@ -154,7 +98,7 @@ def command_run(user: UserMessages, m: MicroPythonRepl, args):
     # XXX set timeout / as argument?
     if args.timeout == 0:
         raise ValueError('use --interactive instead of --timeout=0')
-    user.info('reading {}\n'.format(args.FILE))
+    user.info(f'reading {args.FILE}\n')
     code = args.FILE.read()
     user.info('executing...\n')
     if args.interactive:
@@ -208,7 +152,7 @@ def command_ls(user: UserMessages, m: MicroPythonRepl, args):
     List files on the targets file system.
     """
     print_list = ListPrinter(user, args.long)
-    for path in expand_pattern(m, args.PATH):
+    for path in expand_pattern(connect_repl(args.PATH, m)):
         if path.is_dir():
             if args.recursive:
                 for dirpath, dirnames, filenames in walk(path):
@@ -235,14 +179,14 @@ def command_hash(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Get hash of files on the targets file system.
     """
-    for path in expand_pattern(m, args.PATH):
+    for path in expand_pattern(connect_repl(args.PATH, m)):
         if path.is_dir():
             if args.recursive:
                 for dirpath, dirnames, filenames in walk(path):
                     for file_path in filenames:
-                        print_hash(user, file_path, m.checksum_remote_file(file_path))
+                        print_hash(user, file_path, file_path.sha256())
         else:
-            print_hash(user, path, m.checksum_remote_file(path))
+            print_hash(user, path, path.sha256())
 
 
 def command_cat(user: UserMessages, m: MicroPythonRepl, args):
@@ -253,46 +197,17 @@ def command_cat(user: UserMessages, m: MicroPythonRepl, args):
     user.output_binary(args.PATH.read_bytes())
 
 
-class RemoteRemover:
-    """Wrap remove file or directory function with dry-run option"""
-
-    def __init__(self, user: UserMessages, dry_run: bool) -> None:
-        """
-        :param user: UI object
-        :param dry_run: when true, do not actually perform action
-        """
-        self.user = user
-        self.dry_run = dry_run
-
-    def remove_file(self, remote_path):
-        self.user.info(f'rm {remote_path!s}\n')
-        if not self.dry_run:
-            self.user.file_counter.add_file()
-            remote_path.unlink()
-        else:
-            self.user.file_counter.skip_file()
-
-    def remove_directory(self, remote_path):
-        self.user.info(f'rmdir {remote_path!s}\n')
-        if not self.dry_run:
-            remote_path.rmdir()
-
-
 def command_rm(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Remove files on target.
     """
-    remote_remover = RemoteRemover(user, args.dry_run)
-    for path in expand_pattern(m, args.PATH):
+    sync = Sync(user, args.dry_run)
+    for path in expand_pattern(connect_repl(args.PATH, m)):
         if path.is_dir():
-            if args.recursive:
-                for dirpath, dirnames, filenames in walk(path, topdown=False):
-                    for current_path in filenames:
-                        remote_remover.remove_file(current_path)
-                    remote_remover.remove_directory(dirpath)
+            sync.remove_directory(path, args.recursive)
         else:
-            remote_remover.remove_file(path)
-    user.file_counter.print_summary(user, 'removed')
+            sync.remove_file(path)
+    user.file_counter.print_summary('removed')
 
 
 def command_mkdir(user: UserMessages, m: MicroPythonRepl, args):
@@ -301,79 +216,31 @@ def command_mkdir(user: UserMessages, m: MicroPythonRepl, args):
     args.PATH.mkdir(parents=args.parents, exist_ok=args.parents)
 
 
-EXCLUDE_DIRS = [
-    '__pycache__',
-    '.git',
-]
-
-
-def copy_remote_file(user: UserMessages, m: MicroPythonRepl, remote_path, local_path, dry_run):
-    user.notice(f'{remote_path!s} -> {local_path!s}\n')
-    if not dry_run:
-        user.file_counter.add_file()
-        local_path.write_bytes(remote_path.read_bytes())
-    else:
-        user.file_counter.skip_file()
-
-
 def command_pull(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Copy file(s) from there to here.
     """
     dst = args.LOCAL[0]
-    dst_dir = dst.is_dir()
     # expand the patterns
-    paths = list(expand_pattern(m, args.REMOTE))
+    paths = list(expand_pattern(connect_repl(args.REMOTE, m)))
     if not paths:
         raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.REMOTE)))
     elif len(paths) > 1:
         if dst.exists():
-            if not dst_dir:
+            if not dst.is_dir():
                 raise ValueError(f'destination must be a directory: {dst.as_posix()}')
         else:
             if not args.dry_run:
                 dst.mkdir(exist_ok=True)
-            dst_dir = True
+    sync = Sync(user, args.dry_run)
     for path in paths:
         if path.is_dir():
-            if args.recursive:
-                root = path.parent
-                for dirpath, dirnames, filenames in walk(path, topdown=False):
-                    relpath = dirpath.relative_to(root)
-                    if not args.dry_run:
-                        (dst / dirpath.relative_to(root)).mkdir(exist_ok=True)
-                    for filename in filenames:
-                        copy_remote_file(
-                            user, m,
-                            filename,
-                            dst / filename.relative_to(root),
-                            args.dry_run)
-            else:
-                user.notice(f'skiping directory: {path!s}\n')
+            if path.name in EXCLUDE_DIRS:
+                continue
+            sync.sync_dir(path, dst, recursive=args.recursive)
         else:
-            if dst_dir:
-                copy_remote_file(user, m, path, dst / path.name, args.dry_run)
-            else:
-                copy_remote_file(user, m, path, dst, args.dry_run)
-    user.file_counter.print_summary(user, 'copied', 'already up to date')
-
-
-def push_file(user: UserMessages, m: MicroPythonRepl, local_path, remote_path, dry_run, force):
-    """\
-    copy a file to the target, if it is not already up to date. check with
-    hash if copy is needed
-    """
-    if not dry_run:
-        if force or m.checksum_local_file(local_path) != m.checksum_remote_file(remote_path):
-            user.file_counter.add_file()
-            user.notice(f'{local_path!s} -> {remote_path!s}\n')
-            remote_path.write_bytes(local_path.read_bytes())
-        else:
-            user.file_counter.skip_file()
-            user.info(f'{remote_path!s}: already up to date\n')
-    else:
-        user.file_counter.skip_file()
-        user.notice(f'dry run: {local_path!s} -> {remote_path!s}\n')
+            sync.sync_file(path, dst)
+    user.file_counter.print_summary('copied', 'already up to date')
 
 
 def command_push(user: UserMessages, m: MicroPythonRepl, args):
@@ -382,59 +249,24 @@ def command_push(user: UserMessages, m: MicroPythonRepl, args):
     """
     dst = args.REMOTE[0]
     dst.connect_repl(m)
-    try:
-        dst_dir = dst.is_dir()
-        dst_exists = True
-    except FileNotFoundError:
-        dst_dir = False
-        dst_exists = False
     # expand the patterns for our windows users ;-)
-    paths = list(expand_pattern_local(args.LOCAL))
+    paths = list(expand_pattern(args.LOCAL))
     if not paths:
         raise FileNotFoundError(2, 'cannot find source: {}'.format(' '.join(args.LOCAL)))
     elif len(paths) > 1:
-        if not dst_dir:
+        if not dst.is_dir():
             raise ValueError(f'destination must be a directory: {dst!s}')
-        if not dst_exists:
+        if not dst.exists():
             raise ValueError(f'destination directory must exist: {dst!s}')
+    sync = Sync(user, args.dry_run, args.force)
     for path in paths:
         if path.is_dir():
             if path.name in EXCLUDE_DIRS:
                 continue
-            if args.recursive:
-                root = path.parent
-                for dirpath, dirnames, filenames in os.walk(path):
-                    dirpath = pathlib.Path(dirpath)
-                    relpath = dirpath.relative_to(root).parts
-                    if not args.dry_run:
-                        dst.joinpath(*relpath).connect_repl(dst._repl).mkdir(parents=True, exist_ok=True)
-                    for dir in EXCLUDE_DIRS:
-                        try:
-                            dirnames.remove(dir)
-                        except ValueError:
-                            pass
-                    for filename in filenames:
-                        push_file(
-                            user, m,
-                            dirpath / filename,
-                            dst.joinpath(*relpath, filename).connect_repl(dst._repl),
-                            args.dry_run, args.force)
-            else:
-                user.notice(f'skiping directory: {path!s}\n')
+            sync.sync_dir(path, dst, recursive=args.recursive)
         else:
-            if dst_dir:
-                push_file(
-                    user, m,
-                    path,
-                    (dst / path.name).connect_repl(dst._repl),
-                    args.dry_run, args.force)
-            else:
-                push_file(
-                    user, m,
-                    path,
-                    dst,
-                    args.dry_run, args.force)
-    user.file_counter.print_summary(user, 'copied', 'already up to date')
+            sync.sync_file(path, dst)
+    user.file_counter.print_summary('copied', 'already up to date')
 
 
 def command_df(user: UserMessages, m: MicroPythonRepl, args):
@@ -459,7 +291,7 @@ def command_mount(user: UserMessages, m: MicroPythonRepl, args):
         else:
             subprocess.call(["xdg-open", args.MOUNTPOINT])
     try:
-        user.info('mounting to {}\n'.format(args.MOUNTPOINT))
+        user.info(f'mounting to {args.MOUNTPOINT}\n')
         args.base.connect_repl(m)
         fuse_drive.mount(args.base, args.MOUNTPOINT, args.verbose)
     except RuntimeError:
@@ -469,11 +301,11 @@ def command_mount(user: UserMessages, m: MicroPythonRepl, args):
 def command_rtc(user: UserMessages, m: MicroPythonRepl, args):
     """read the real time clock (RTC)"""
     t1 = m.read_rtc()
-    user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t1))
+    user.output_text(f'{t1:%Y-%m-%d %H:%M:%S.%f}\n')
     if args.test:
         time.sleep(1)
         t2 = m.read_rtc()
-        user.output_text('{:%Y-%m-%d %H:%M:%S.%f}\n'.format(t2))
+        user.output_text(f'{t2:%Y-%m-%d %H:%M:%S.%f}\n')
         if not datetime.timedelta(seconds=0.9) <  t2 - t1 < datetime.timedelta(seconds=1.1):
             raise IOError('clock not running')
 

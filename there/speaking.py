@@ -8,6 +8,7 @@
 Functions to make things human readable.
 """
 import stat
+import sys
 from math import log10
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -26,12 +27,18 @@ def nice_bytes(value):
     '21.00 GB'
     >>> nice_bytes(123e12)
     '123.0 TB'
+    >>> nice_bytes(999)
+    '999 B'
+    >>> nice_bytes(1000)
+    '1.000 kB'
     >>> nice_bytes(48)
     '48 B'
+    >>> nice_bytes(0)
+    '0 B'
     """
     if value < 0:
         raise ValueError(f'Byte count can not be negative: {value}')
-    elif value == 0:
+    elif 0 <= value < 1000:
         exp = 0
         precision = 0
     else:
@@ -99,6 +106,66 @@ def mode_to_chars(mode):
     # XXX alternate access character omitted
 
     return ''.join(flags)
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+class UserMessages:
+    """
+    Provide a class with methods to interact with user. Makes it simpler to
+    track verbosity flag.
+    """
+    def __init__(self, verbosity: int) -> None:
+        self.verbosity = verbosity
+        self.file_counter = FileCounter(self)
+
+    def output_binary(self, message: str) -> None:
+        """output bytes, typically stdout"""
+        sys.stdout.buffer.write(message)
+        sys.stdout.buffer.flush()
+
+    def output_text(self, message: str) -> None:
+        """output text, typically stdout"""
+        sys.stdout.write(message)
+        sys.stdout.flush()
+
+    def error(self, message: str) -> None:
+        """error messages to stderr"""
+        sys.stderr.write(message)
+        sys.stderr.flush()
+
+    def notice(self, message: str) -> None:
+        """informative messages to stderr"""
+        if self.verbosity > 0:
+            sys.stderr.write(message)
+            sys.stderr.flush()
+
+    def info(self, message: str) -> None:
+        """informative messages to stderr, only if verbose flag is set"""
+        if self.verbosity > 1:
+            sys.stderr.write(message)
+            sys.stderr.flush()
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+class FileCounter:
+    """Class to keep track of files processed, e.g. for push or pull operations"""
+
+    def __init__(self, user: UserMessages):
+        self.user = user
+        self.files = 0
+        self.skipped = 0
+
+    def add_file(self):
+        self.files += 1
+
+    def skip_file(self):
+        self.skipped += 1
+
+    def print_summary(self, action_verb: str, skipped_verb='skipped'):
+        message = [f'{self.files} files {action_verb}']
+        if self.skipped:
+            message.append(f'{self.skipped} {skipped_verb}')
+        self.user.notice('{}\n'.format(', '.join(message)))
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

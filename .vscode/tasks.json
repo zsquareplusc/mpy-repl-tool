@@ -1,0 +1,53 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    // see also https://code.visualstudio.com/docs/editor/tasks
+    "version": "2.0.0",
+    "echoCommand": true,
+    "windows": {
+        "command": "${workspaceFolder}/venv/scripts/python",
+    },
+    "linux": {
+        "command": "${workspaceFolder}/venv/bin/python",
+    },
+    "presentation" : {
+        "reveal": "always"
+    },
+    "type": "shell",
+    "tasks": [
+        {
+            "label": "Documentation 📄: build 🔨",
+            "group": "build",
+            "args": [
+                "-m",
+                "sphinx",
+                "-d", "${workspaceFolder}/documentation/_build/doctrees",
+                "${workspaceFolder}/documentation",
+                "-b", "html",
+                "${workspaceFolder}/documentation/_build/html",
+            ],
+            "problemMatcher": {
+                "owner": "external",
+                "fileLocation": [
+                    "absolute"
+                ],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):\\s+(WARNING|ERROR|SEVERE):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            }
+        },
+        {
+            "label": "Documentation 📄: open in webbrowser 💻",
+            "args": [
+                "-m",
+                "webbrowser",
+                "${workspaceFolder}/documentation/_build/html/index.html",
+            ],
+            "problemMatcher": []
+        },
+    ]
+}

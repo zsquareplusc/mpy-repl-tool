@@ -281,6 +281,14 @@ def command_df(user: UserMessages, m: MicroPythonRepl, args):
             ))
 
 
+def command_read_flash(user: UserMessages, m: MicroPythonRepl, args):
+    """\
+    Read from pyb.Flash() bdev (internal, on some boards SPI Flash).
+    """
+    for block in m.read_flash_as_stream(args.start, args.length):
+        args.output.write(block)
+
+
 def command_mount(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Mount the target as file system via FUSE.
@@ -447,6 +455,12 @@ def main():
     parser_mkdir.add_argument('PATH', nargs='+', type=MpyPath, help='filename on target')
     parser_mkdir.add_argument('--parents', action='store_true', help='create parents')   # -p clashes with --port
     parser_mkdir.set_defaults(func=command_mkdir, connect=True)
+
+    parser_read_flash = subparsers.add_parser('read_flash', help='Read Flash memory')
+    parser_read_flash.add_argument('-s', '--start', type=lambda x: int(x, 0), default=0, help='start offset')
+    parser_read_flash.add_argument('-l', '--length', type=lambda x: int(x, 0), default=-1, help='length')
+    parser_read_flash.add_argument('-o', '--output', type=argparse.FileType('wb'), help='store flash to file')
+    parser_read_flash.set_defaults(func=command_read_flash, connect=True)
 
     parser_df = subparsers.add_parser('df', help='Show filesystem information')
     parser_df.add_argument('PATH', nargs='*', default=[MpyPath('/')], type=MpyPath, help='remote path')

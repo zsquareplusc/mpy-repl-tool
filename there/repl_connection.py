@@ -284,6 +284,37 @@ class MicroPythonRepl(object):
             255 - (255 * board_time.microsecond) // 999999
         ))
 
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+    def read_flash_as_stream(self, offset, length):
+        """
+        :returns: Iterator
+        :rtype: Iterator of bytes
+
+        Iterate over blocks (`bytes`) of Flash memory.
+        """
+        self.exec(
+            'import ubinascii, pyb;\n'
+            'def _b():\n'
+            f'  f = pyb.Flash(start={offset!r}, len={length!r})\n'
+            '  f.ioctl(1, 1)\n'  # switch to new BDEV API
+            '  blk = f.ioctl(5, 0)\n'  # get block size
+            '  mem = memoryview(bytearray(blk))\n'
+            f'  n_blocks = ({length!r} // blk) if {length!r} > 0 else f.ioctl(4, 0)\n'
+            f'  for n in range(0, n_blocks):\n'
+            '    f.readblocks(n, mem, 0)\n'
+            '    print(ubinascii.b2a_base64(mem))\n'
+            '    yield\n'
+            '  print(b"")\n'
+            '  yield\n'
+            '_b = _b()\n')
+        while True:
+            block = self.evaluate('next(_b)')
+            if not block:
+                break
+            yield binascii.a2b_base64(block)
+        self.exec('del _b')
+
 
 def _override_stat(st):
     """

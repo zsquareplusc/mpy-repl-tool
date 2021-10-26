@@ -216,6 +216,13 @@ def command_mkdir(user: UserMessages, m: MicroPythonRepl, args):
         path.mkdir(parents=args.parents, exist_ok=args.parents)
 
 
+def command_mv(user: UserMessages, m: MicroPythonRepl, args):
+    """Make a directory remotely"""
+    args.SRC.connect_repl(m)
+    args.DST.connect_repl(m)
+    args.SRC.rename(args.DST)
+
+
 def command_pull(user: UserMessages, m: MicroPythonRepl, args):
     """\
     Copy file(s) from there to here.
@@ -455,6 +462,11 @@ def main():
     parser_mkdir.add_argument('PATH', nargs='+', type=MpyPath, help='filename on target')
     parser_mkdir.add_argument('--parents', action='store_true', help='create parents')   # -p clashes with --port
     parser_mkdir.set_defaults(func=command_mkdir, connect=True)
+
+    parser_mv = subparsers.add_parser('mv', help='move files')
+    parser_mv.add_argument('SRC', type=MpyPath, help='source')
+    parser_mv.add_argument('DST', type=MpyPath, help='destination')
+    parser_mv.set_defaults(func=command_mv, connect=True)
 
     parser_read_flash = subparsers.add_parser('read_flash', help='Read Flash memory')
     parser_read_flash.add_argument('-s', '--start', type=lambda x: int(x, 0), default=0, help='start offset')

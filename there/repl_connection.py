@@ -438,8 +438,11 @@ class MpyPath(pathlib.PurePosixPath):  # pathlib.PosixPath
         filesystem.
         """
         self._stat_cache = None
+        if isinstance(path_to, pathlib.PurePath):
+            if self.parent != path_to.parent:
+                raise NotImplementedError('currently only rename within the same directory is supported')
         self._repl.evaluate(f'import os; print(os.rename({self.as_posix()!r}, {path_to.as_posix()!r}))')
-        return self.with_name(path_to)  # XXX, moves across dirs
+        return self.with_name(path_to.name)  # XXX, moves across dirs
 
     def mkdir(self, parents=False, exist_ok=False):
         """

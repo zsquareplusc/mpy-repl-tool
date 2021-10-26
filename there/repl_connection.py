@@ -137,7 +137,7 @@ class MicroPythonReplProtocol(serial.threaded.Packetizer):
 class MicroPythonRepl(object):
     def __init__(self, port='hwgrep://USB', baudrate=115200, user=None, password=None):
         self.serial = None
-        self.serial = serial.serial_for_url(port, baudrate=baudrate, timeout=1)
+        self.serial = serial.serial_for_url(port, baudrate=baudrate, timeout=1, exclusive=True)
         if user is not None:
             time.sleep(0.1)
             self.serial.read_until(b'Login as: ')

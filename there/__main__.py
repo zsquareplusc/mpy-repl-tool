@@ -265,7 +265,7 @@ def command_push(user: UserMessages, m: MicroPythonRepl, args):
             raise ValueError(f'destination must be a directory: {dst!s}')
         if not dst.exists():
             raise ValueError(f'destination directory must exist: {dst!s}')
-    sync = Sync(user, args.dry_run, args.force)
+    sync = Sync(user, args.dry_run, args.force, args.no_uhashlib)
     for path in paths:
         if path.is_dir():
             if path.name in EXCLUDE_DIRS:
@@ -449,6 +449,7 @@ def main():
     parser_push.add_argument('-r', '--recursive', action='store_true', help='copy recursively')
     parser_push.add_argument('--dry-run', action='store_true', help='do not actually create anything on target')
     parser_push.add_argument('--force', action='store_true', help='write always, skip up-to-date check')
+    parser_push.add_argument('--no-uhashlib', action='store_true', help='do not attempt to use uhashlib')
     parser_push.set_defaults(func=command_push, connect=True)
 
     parser_rm = subparsers.add_parser('rm', help='remove files from target')

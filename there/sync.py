@@ -33,10 +33,11 @@ class Sync:
     It would even support syncing local-local or remote-remote.
     """
 
-    def __init__(self, user: UserMessages, dry_run=False, force=False):
+    def __init__(self, user: UserMessages, dry_run=False, force=False, no_uhashlib=False):
         self.user = user
         self.dry_run = dry_run
         self.force = force
+        self.use_uhashlib = not no_uhashlib
 
     def _hash_path(self, path):
         """Return a sha256 hash over the contents of a file"""
@@ -52,6 +53,16 @@ class Sync:
                     _h.update(block)
             return _h.digest()
 
+    def _files_are_different(self, source_path: Union[Path, MpyPath], destination_path: Union[Path, MpyPath]):
+        try:
+            if source_path.stat().st_size != destination_path.stat().st_size:
+                return True
+        except FileNotFoundError:
+            return True
+        if self.use_uhashlib and self._hash_path(source_path) != self._hash_path(destination_path):
+            return True
+        return False
+
     def sync_file(self, source_path: Union[Path, MpyPath], destination_path: Union[Path, MpyPath]):
         """\
         Copy a file from or to the target, if it is not already up to date. check with
@@ -63,7 +74,7 @@ class Sync:
             # support target being a directory (or a file)
             if destination_path.is_dir():
                 destination_path = destination_path / source_path.name
-            if self.force or self._hash_path(source_path) != self._hash_path(destination_path):
+            if self.force or self._files_are_different(source_path, destination_path):
                 self.user.file_counter.add_file()
                 self.user.notice(f'{source_path!s} -> {destination_path!s}\n')
                 destination_path.write_bytes(source_path.read_bytes())

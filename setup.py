@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# (C) 2016-2021 Chris Liechti <cliechti@gmx.net>
+# (C) 2016-2023 Chris Liechti <cliechti@gmx.net>
 #
 # SPDX-License-Identifier:    BSD-3-Clause
 
@@ -11,9 +11,9 @@ except ImportError:
 
 setup(
     name="mpy-repl-tool",
-    description='Communicate and transfer files from and to MicroyPython boards via REPL',
+    description='Communicate and transfer files from and to MicroPython boards via REPL',
     long_description=open('README.rst').read(),
-    version='0.13',
+    version='0.14',
     author="Chris Liechti",
     author_email="cliechti@gmx.net",
     url="https://github.com/zsquareplusc/mpy-repl-tool",

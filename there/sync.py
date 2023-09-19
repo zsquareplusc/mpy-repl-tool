@@ -44,7 +44,7 @@ class Sync:
             return path.sha256()
         else:
             _h = hashlib.sha256()
-            with open(path, 'rb') as f:
+            with path.open('rb') as f:
                 while True:
                     block = f.read(512)
                     if not block:
